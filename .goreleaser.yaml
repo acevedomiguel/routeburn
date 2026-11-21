@@ -1,0 +1,68 @@
+version: 2
+
+project_name: routeburn
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: routeburn
+    main: ./cmd/routeburn
+    binary: routeburn
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows ARM64 is not part of the first release surface.
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: routeburn
+    ids:
+      - routeburn
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: git
+
+release:
+  prerelease: auto
+
+brews:
+  - name: routeburn
+    ids:
+      - routeburn
+    directory: Formula
+    homepage: https://github.com/acevedomiguel/routeburn
+    description: Read-only Go TUI for monitoring OpenRouter credits, usage, and runway
+    license: MIT
+    repository:
+      owner: acevedomiguel
+      name: homebrew-routeburn
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_msg_template: "chore: update routeburn to {{ .Tag }}"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/routeburn --version")
