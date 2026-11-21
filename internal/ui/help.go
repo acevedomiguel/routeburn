@@ -7,6 +7,7 @@ import (
 // Binding describes one key hint in the footer and the help overlay.
 type Binding struct {
 	Keys   []string
+	Hint   string
 	Action string
 }
 
@@ -14,10 +15,10 @@ type Binding struct {
 // listed.
 func Bindings() []Binding {
 	return []Binding{
-		{Keys: []string{"r"}, Action: "refresh"},
-		{Keys: []string{"j/k", "up/down"}, Action: "scroll"},
-		{Keys: []string{"?"}, Action: "help"},
-		{Keys: []string{"q"}, Action: "quit"},
+		{Keys: []string{"r"}, Hint: "r", Action: "refresh"},
+		{Keys: []string{"j", "k", "up", "down"}, Hint: "j/k", Action: "scroll"},
+		{Keys: []string{"?"}, Hint: "?", Action: "help"},
+		{Keys: []string{"q"}, Hint: "q", Action: "quit"},
 	}
 }
 
@@ -25,11 +26,7 @@ func Bindings() []Binding {
 func Footer(opts ViewOptions) string {
 	var parts []string
 	for _, b := range Bindings() {
-		key := b.Keys[0]
-		if len(key) > 2 {
-			key = key[:2]
-		}
-		parts = append(parts, opts.Styles.Key.Render("["+key+"]")+opts.Styles.Help.Render(b.Action))
+		parts = append(parts, opts.Styles.Key.Render("["+b.Hint+"]")+opts.Styles.Help.Render(b.Action))
 	}
 	return strings.Join(parts, "  ")
 }

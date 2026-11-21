@@ -22,6 +22,7 @@ type ViewOptions struct {
 	Banner      string
 	HelpVisible bool
 	Scroll      int
+	Refreshing  bool
 }
 
 // Render draws the full dashboard. It never performs IO.
@@ -89,6 +90,8 @@ func header(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 	if opts.Cached {
 		freshness = CachedLabel(opts.CacheAge, true)
 		status = freshness
+	} else if opts.Refreshing {
+		status = "Refreshing..."
 	}
 
 	line := title + "  " + opts.Styles.Muted.Render(truncate(status, lay.ContentWidth-12))
