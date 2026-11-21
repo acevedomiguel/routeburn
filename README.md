@@ -3,26 +3,38 @@
 **A read-only terminal dashboard for OpenRouter credits, spend, and runway.**
 
 ```
+RouteBurn  Updated 15:42
+
 Credits remaining                                Last 30 days
-$42.10 / $100.00                                 Spend: $12.34
-[######################----------] 42% remaining Tokens: 8.4M
-Estimated runway                                 This API key
-102 days - ~Mar 03                               $31.20 / $50.00 limit
+$42.10 / $100.00                                 Spend: $11.29
+[##########--------------] 42% remaining         Tokens: 7.9M
+at $0.37/day                                     This API key
+Estimated runway                                 Limit:     $50.00 [#####-------]
+115 days - ~Mar 17                               Remaining: $31.20
+based on $10.96 over 30 days                     Month:     $18.80
+                                                 production
 
 Daily credit spend
-$1.20 +
-      |        #
-      |     #  #  #     #
-$0.00 +---#--#--#--#--#--#---
-      Oct 24                 Nov 21
+ $1.20                                       #
+                              +           +  #  +
+                           +  #           #  #  #             +           +
+            +  +           #  #  +  +  +  #  #  #  +          #  +  +     #
+ $0.00   +  #  #  +  +     #  #  #  #  #  #  #  #  #    +  #  #  #  #  +  #
+-------+------------------------------------------------------------------
+        Oct 23                                   Nov 07                     
 
 Cost by model
-anthropic/claude-sonnet-4    $7.21  4.1M tokens
-openai/gpt-5                 $3.82  2.9M tokens
-meta/llama-4-70b             $1.31  1.4M tokens
+anthropic/claude-sonnet-4                 $7.21  Total       7.9M
+openai/gpt-5                              $3.82  Cache hit  18.4%
+meta/llama-4-70b                          $1.31
+google/gemini-2.5-pro                     $0.62
+mistralai/mistral-large                   $0.21
 
 [r]refresh  [j/k]scroll  [?]help  [q]quit
 ```
+
+Synthetic data, produced with `ROUTEBURN_DEMO=1 routeburn`. No account figures
+appear in this repository.
 
 RouteBurn answers three questions without opening a browser: how much credit is
 left, what was spent in the last 30 days, and how long that balance lasts at the

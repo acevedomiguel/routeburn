@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 )
 
 type fakeAPI struct {
+	mu sync.Mutex
+
 	credits    or.CreditSummary
 	creditsErr error
 
@@ -33,7 +36,9 @@ type fakeAPI struct {
 }
 
 func (f *fakeAPI) Credits(ctx context.Context) (or.CreditSummary, error) {
+	f.mu.Lock()
 	f.calls++
+	f.mu.Unlock()
 	if f.blockCh != nil {
 		select {
 		case <-f.blockCh:
@@ -49,7 +54,9 @@ func (f *fakeAPI) Key(ctx context.Context) (or.KeyInfo, error) {
 }
 
 func (f *fakeAPI) QueryAnalytics(ctx context.Context, q or.AnalyticsQuery) ([]or.AnalyticsRow, error) {
+	f.mu.Lock()
 	f.queries = append(f.queries, q)
+	f.mu.Unlock()
 	if len(q.Dimensions) > 0 {
 		return f.models, f.modelsErr
 	}
