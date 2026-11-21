@@ -29,7 +29,7 @@ func decodeAnalyticsRows(raw json.RawMessage) ([]AnalyticsRow, error) {
 			return nil, malformedAnalytics(err)
 		}
 		found := false
-		for _, key := range []string{"rows", "results", "items", "data"} {
+		for _, key := range []string{"data", "rows", "results", "items"} {
 			value, ok := envelope[key]
 			if !ok {
 				continue
@@ -46,11 +46,14 @@ func decodeAnalyticsRows(raw json.RawMessage) ([]AnalyticsRow, error) {
 				}
 				found = true
 			case map[string]any:
-				nested, ok := typed["rows"]
-				if !ok {
-					nested, ok = typed["results"]
+				var nested any
+				for _, nestedKey := range []string{"data", "rows", "results", "items"} {
+					if candidate, ok := typed[nestedKey]; ok {
+						nested = candidate
+						break
+					}
 				}
-				if !ok {
+				if nested == nil {
 					continue
 				}
 				list, ok := nested.([]any)
@@ -99,7 +102,7 @@ func malformedAnalytics(err error) error {
 }
 
 func rowTime(row map[string]any) time.Time {
-	for _, key := range []string{"day", "date", "timestamp", "bucket", "time"} {
+	for _, key := range []string{"date__day", "day", "date", "timestamp", "bucket", "time"} {
 		value, ok := row[key]
 		if !ok {
 			continue
