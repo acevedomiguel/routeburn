@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,10 +43,38 @@ type Model struct {
 
 	gen int
 
+	cancelMu    sync.Mutex
+	cancelFetch context.CancelFunc
+
 	fetchFn func(context.Context, FetchOptions) (domain.Snapshot, error)
 }
 
-// Config is the subset of application configuration the model needs.
+// setCancel records the cancel function of the running fetch so quit can stop it.
+func (m *Model) setCancel(cancel context.CancelFunc) {
+	m.cancelMu.Lock()
+	m.cancelFetch = cancel
+	m.cancelMu.Unlock()
+}
+
+// cancelInFlight stops any running fetch immediately.
+func (m *Model) cancelInFlight() {
+	m.cancelMu.Lock()
+	cancel := m.cancelFetch
+	m.cancelFetch = nil
+	m.cancelMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+}
+
+// cancelPending reports whether a fetch is currently registered as in flight.
+func (m *Model) cancelPending() bool {
+	m.cancelMu.Lock()
+	defer m.cancelMu.Unlock()
+	return m.cancelFetch != nil
+}
+
 type Config struct {
 	RefreshInterval time.Duration
 	NoCache         bool
@@ -221,6 +250,8 @@ func (m *Model) refreshCommands() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		m.setCancel(cancel)
+		defer m.setCancel(nil)
 
 		snap, err := fetch(ctx, FetchOptions{
 			Now:      now,

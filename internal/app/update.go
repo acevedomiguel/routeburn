@@ -68,6 +68,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
 	if key == "ctrl+c" {
+		m.cancelInFlight()
 		return m, tea.Quit
 	}
 
@@ -81,6 +82,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch key {
 	case "q":
+		m.cancelInFlight()
 		return m, tea.Quit
 	case "?":
 		m.helpVisible = true
