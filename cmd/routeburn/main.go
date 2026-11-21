@@ -85,6 +85,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	if demoMode() && opts.command == "dashboard" {
 		// Synthetic fixtures: no credentials, no network, no cache.
+		if opts.jsonMode {
+			return runDemoJSON(stdout)
+		}
 		return runDemo(opts, stdin, stdout, stderr)
 	}
 

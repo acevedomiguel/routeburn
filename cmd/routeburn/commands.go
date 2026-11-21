@@ -232,6 +232,22 @@ func runDemo(opts options, stdin io.Reader, stdout, stderr io.Writer) int {
 	return exitOK
 }
 
+// runDemoJSON prints the synthetic snapshot in the same contract as --json.
+func runDemoJSON(stdout io.Writer) int {
+	snap := app.DemoSnapshot(time.Now().UTC())
+
+	payload, err := app.MarshalJSON(snap, false)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "routeburn: %v\n", err)
+		return exitFailure
+	}
+	if _, err := stdout.Write(payload); err != nil {
+		fmt.Fprintf(os.Stderr, "routeburn: %v\n", err)
+		return exitFailure
+	}
+	return exitOK
+}
+
 // isTerminal reports whether r is an interactive terminal.
 func isTerminal(r io.Reader) bool {
 	file, ok := r.(*os.File)
