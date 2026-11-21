@@ -55,6 +55,8 @@ current burn rate.
 - Go 1.24 or newer to build from source.
 - An OpenRouter **Management API key** for account credits and analytics.
 - Optionally a regular **API key**, which adds the `key` section to `--json`.
+  `routeburn setup` asks only for the management key; set the regular key through
+  `ROUTEBURN_API_KEY` if you want that section.
 
 ### Management key versus regular API key
 
@@ -67,7 +69,7 @@ The two keys are not interchangeable, and RouteBurn treats them separately.
 
 A regular key alone cannot show the account balance. A management key alone is
 enough for every part of the dashboard; a regular key only enriches the `--json`
-contract, because the per-key limit is not shown in the dashboard. 
+contract, because the per-key limit is not shown in the dashboard.
 `OPENROUTER_API_KEY` is accepted as a compatibility fallback for the *regular*
 key slot only; it is never treated as a management key.
 
@@ -292,7 +294,7 @@ Cached data can be stale. A cached runway estimate is never presented as live.
 | `k` / `Up` | Scroll up |
 | `PgDn` / `PgUp` | Scroll one screen |
 | `?` | Toggle the help overlay |
-| `Esc` | Close help |
+| `Esc` | Close the help overlay, or quit when it is closed |
 | `q` / `Ctrl+C` | Quit |
 
 The menu bar on the last row always lists the keys that actually work, and
