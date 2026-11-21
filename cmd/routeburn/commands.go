@@ -273,7 +273,9 @@ func readSetupLines(stdin io.Reader, stdout, stderr io.Writer) (string, string, 
 	scanner := bufio.NewScanner(stdin)
 	fmt.Fprint(stdout, "Management key: ")
 	if !scanner.Scan() {
-		fmt.Fprintln(stderr, "\nrouteburn: no input received on stdin.")
+		fmt.Fprintln(stderr, "\nrouteburn: no OpenRouter management key was provided.")
+		fmt.Fprintln(stderr, "RouteBurn needs one for account credits and analytics; create it at")
+		fmt.Fprintln(stderr, "https://openrouter.ai/settings/management_keys and run this again.")
 		return "", "", exitCredentials
 	}
 	management := strings.TrimSpace(scanner.Text())

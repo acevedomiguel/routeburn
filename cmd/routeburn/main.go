@@ -109,12 +109,33 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	runtime, err := buildRuntime(opts, paths)
 	if err != nil {
-		if errors.Is(err, errNoCredentials) {
+		if !errors.Is(err, errNoCredentials) {
+			fmt.Fprintf(stderr, "routeburn: %v\n", err)
+			return exitUsage
+		}
+
+		// A script must never block on a prompt, so JSON mode explains instead.
+		if opts.jsonMode {
 			fmt.Fprint(stderr, setupInstructions())
 			return exitCredentials
 		}
-		fmt.Fprintf(stderr, "routeburn: %v\n", err)
-		return exitUsage
+
+		// First run: do the setup here instead of sending the user to a second
+		// command. The wizard is interactive when stdin is a terminal and reads
+		// from the pipe otherwise.
+		if code := doSetup(paths, opts, stdin, stdout, stderr); code != exitOK {
+			return code
+		}
+
+		runtime, err = buildRuntime(opts, paths)
+		if err != nil {
+			if errors.Is(err, errNoCredentials) {
+				fmt.Fprint(stderr, setupInstructions())
+				return exitCredentials
+			}
+			fmt.Fprintf(stderr, "routeburn: %v\n", err)
+			return exitUsage
+		}
 	}
 
 	if opts.jsonMode {
