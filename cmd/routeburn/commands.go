@@ -197,58 +197,6 @@ func doSetup(paths config.Paths, opts options, stdin io.Reader, stdout, stderr i
 	return exitOK
 }
 
-// demoMode reports whether synthetic fixtures should be shown instead of live data.
-func demoMode() bool {
-	value := strings.ToLower(strings.TrimSpace(os.Getenv("ROUTEBURN_DEMO")))
-	return value == "1" || value == "true" || value == "yes" || value == "on"
-}
-
-// runDemo renders the dashboard with synthetic fixtures and no network access.
-func runDemo(opts options, stdin io.Reader, stdout, stderr io.Writer) int {
-	now := time.Now().UTC()
-
-	model := app.New(app.Deps{
-		Config: app.Config{
-			RefreshInterval: 0,
-			NoCache:         true,
-			NoColor:         opts.noColor,
-			RangeDays:       30,
-		},
-		Creds: app.Creds{Management: "demo"},
-		Now:   func() time.Time { return now },
-		Fetch: func(context.Context, app.FetchOptions) (domain.Snapshot, error) {
-			return app.DemoSnapshot(now), nil
-		},
-	})
-
-	program := tea.NewProgram(model,
-		tea.WithInput(stdin),
-		tea.WithOutput(stdout),
-		tea.WithAltScreen(),
-	)
-	if _, err := program.Run(); err != nil {
-		fmt.Fprintf(stderr, "routeburn: %v\n", err)
-		return exitFailure
-	}
-	return exitOK
-}
-
-// runDemoJSON prints the synthetic snapshot in the same contract as --json.
-func runDemoJSON(stdout io.Writer) int {
-	snap := app.DemoSnapshot(time.Now().UTC())
-
-	payload, err := app.MarshalJSON(snap, false)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "routeburn: %v\n", err)
-		return exitFailure
-	}
-	if _, err := stdout.Write(payload); err != nil {
-		fmt.Fprintf(os.Stderr, "routeburn: %v\n", err)
-		return exitFailure
-	}
-	return exitOK
-}
-
 // isTerminal reports whether r is an interactive terminal.
 func isTerminal(r io.Reader) bool {
 	file, ok := r.(*os.File)

@@ -44,11 +44,9 @@ func TestRenderShowsCoreFacts(t *testing.T) {
 		"RouteBurn",
 		"Credits remaining",
 		"$42.10",
-		"$100.00",
 		"Estimated runway",
 		"102 days",
 		"Last 30 days",
-		"This API key",
 		"anthropic/claude-sonnet-4",
 		"Daily credit spend",
 	} {
@@ -113,21 +111,15 @@ func TestRenderBannerApppears(t *testing.T) {
 	}
 }
 
-func TestRenderKeyUnlimited(t *testing.T) {
+// The per-key limit card was removed at the user's request: only account
+// credit is rendered, never the key's own limit.
+func TestRenderOmitsThePerKeyLimit(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	snap.Key = &domain.KeyCredits{Label: "unlimited-key"}
 	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
-	if !strings.Contains(out, "unlimited") {
-		t.Fatalf("expected unlimited label: %q", out)
-	}
-}
-
-func TestRenderNoKeyConfigured(t *testing.T) {
-	snap := SampleSnapshotAt(fixedNow())
-	snap.Key = nil
-	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
-	if !strings.Contains(out, "not configured") {
-		t.Fatalf("expected a not-configured key card: %q", out)
+	for _, unwanted := range []string{"This API key", "Limit:", "production"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("render must not show the per-key section (%q):\n%s", unwanted, out)
+		}
 	}
 }
 

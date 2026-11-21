@@ -3,61 +3,11 @@ package ui
 import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/paginator"
-	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 )
-
-// barFull and barEmpty are the bubbles progress fill characters. Solid block
-// and shade read well on both dark and light terminals.
-const (
-	meterFull  = '█'
-	meterEmpty = '░'
-)
-
-// meterColor and meterEmptyColor keep the meter legible without a theme.
-const (
-	meterColor      = "#36D399"
-	meterEmptyColor = "#3F3F46"
-)
-
-// Meter renders a bubbles progress bar of an exact column width. percent is
-// clamped to 0..100. Percentage text is suppressed so the bar alone fills the
-// requested width and never shifts the layout.
-func Meter(percent float64, width int, s Styles) string {
-	if width < 1 {
-		width = 1
-	}
-	percent = clampPercent(percent)
-
-	profile := termenv.Ascii
-	if s.Enabled {
-		profile = lipgloss.ColorProfile()
-	}
-
-	bar := progress.New(
-		progress.WithFillCharacters(meterFull, meterEmpty),
-		progress.WithSolidFill(meterColor),
-		progress.WithoutPercentage(),
-		progress.WithWidth(width),
-		progress.WithColorProfile(profile),
-	)
-	bar.EmptyColor = meterEmptyColor
-	return bar.ViewAs(percent / 100)
-}
-
-func clampPercent(v float64) float64 {
-	if v < 0 {
-		return 0
-	}
-	if v > 100 {
-		return 100
-	}
-	return v
-}
 
 // helpStyles adapts the terminal palette to the bubbles help bubble.
 func helpStyles(s Styles) help.Styles {

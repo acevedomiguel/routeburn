@@ -5,38 +5,35 @@
 ```
   RouteBurn                                                                          Updated 15:42
 Credits remaining                                Last 30 days
-$42.10 / $100.00                                 Spend: $11.29
-██████████░░░░░░░░░░░░░░ 42% remaining           Tokens: 7.9M
-at $0.37/day                                     This API key
-Estimated runway                                 Limit:     $50.00 █████░░░░░░░
-115 days - ~Mar 17                               Remaining: $31.20
-based on $10.96 over 30 days                     Month:     $18.80
-                                                 production
+$42.10                                           Spend: $11.29
+Estimated runway                                 Tokens: 8.4M
+102 days - ~Mar 03
+30 complete days
+average $0.41/day
 
 Daily credit spend
- $1.20                                       #
-                              +           +  #  +
-                           +  #           #  #  #             +           +              +
-            +  +           #  #  +  +  +  #  #  #  +          #  +  +     #  +  +     +  #  +
- $0.00   +  #  #  +  +     #  #  #  #  #  #  #  #  #    +  #  #  #  #  +  #  #  #  +  #  #  #
--------+----------------------------------------------------------------------------------------
-        Oct 23                                   Nov 07                                   Nov 21
-
+▁▁▂▃▂▁▁▄▆▃▂▂▆█▅▂▁▂▂▄▃▃▂▄▃▂▁▂▃▂ peak $1.20 on Nov 05
 Cost by model
-Model                                 Spend      Total       7.9M
-anthropic/claude-sonnet-4             $7.21      Cache hit  18.4%
-openai/gpt-5                          $3.82
-meta/llama-4-70b                      $1.31
-google/gemini-2.5-pro                 $0.62
+Model                                 Spend      Total       8.4M
+deepseek/deepseek-v4.1-flash-20260910 $6.42      Cache hit  18.4%
+moonshotai/kimi-k3.1-pro-20261023     $4.11
+google/gemini-2.5-pro                 $0.55
 mistralai/mistral-large               $0.21
+
+
+
+
+
+
+
 
 
 
  [r] refresh  [j/k] scroll  [?] help  [q] quit
 ```
 
-Synthetic data, produced with `ROUTEBURN_DEMO=1 routeburn`. No account figures
-appear in this repository.
+Illustrative rendering with placeholder values. The dashboard shows only your
+own account figures.
 
 RouteBurn answers three questions without opening a browser: how much credit is
 left, what was spent in the last 30 days, and how long that balance lasts at the
@@ -49,15 +46,14 @@ current burn rate.
 
 - Built on [Bubbles](https://github.com/charmbracelet/bubbles): the bottom bar is
   a `help` bubble fed by a `key` KeyMap, the scroll offset is a `viewport`, the
-  credits meter is `progress`, the model breakdown is a `table`, pagination dots
-  come from `paginator`, and the refresh indicator is a `spinner`.
+  model breakdown is a `table`, pagination dots come from `paginator`, and the
+  refresh indicator is a `spinner`.
 - Full-screen alternate-screen layout with the menu bar pinned to the last row.
-- Account credits: purchased, used, and remaining, with negative balances shown
-  rather than hidden.
-- Per-key credit limit when a regular API key is configured, clearly labelled as
-  a different scope from the account balance.
-- 30 daily UTC buckets rendered as an ASCII chart that fits the terminal.
-- Model spend ranking with token totals and an `Other (remaining)` rollup.
+- Remaining account credit, as a single figure: the purchased total and a
+  proportion bar are deliberately not shown.
+- 30 daily UTC buckets rendered as a one-row block sparkline with the peak day.
+- Model spend for the same 30 days, ranked with token totals and an
+  `Other (remaining)` rollup.
 - Runway estimate from the previous 30 complete UTC days of spend.
 - Cached snapshot on startup, explicitly labelled with its age when stale.
 - Automatic refresh every 10 seconds by default, plus a throttled manual refresh.
@@ -68,7 +64,7 @@ current burn rate.
 
 - Go 1.24 or newer to build from source.
 - An OpenRouter **Management API key** for account credits and analytics.
-- Optionally a regular **API key** for the per-key limit card.
+- Optionally a regular **API key**, which adds the `key` section to `--json`.
 
 ### Management key versus regular API key
 
@@ -79,10 +75,11 @@ The two keys are not interchangeable, and RouteBurn treats them separately.
 | Management key | Whole account | `GET /credits`, `POST /analytics/query` |
 | Regular API key | One key | `GET /key` (label, limit, remaining limit) |
 
-A regular key alone cannot show the account balance. A management key alone
-still produces every card except the per-key limit. `OPENROUTER_API_KEY` is
-accepted as a compatibility fallback for the *regular* key slot only; it is
-never treated as a management key.
+A regular key alone cannot show the account balance. A management key alone is
+enough for every part of the dashboard; a regular key only enriches the `--json`
+contract, because the per-key limit is not shown in the dashboard. 
+`OPENROUTER_API_KEY` is accepted as a compatibility fallback for the *regular*
+key slot only; it is never treated as a management key.
 
 Create a management key at
 <https://openrouter.ai/settings/management_keys>.
@@ -334,8 +331,8 @@ make snapshot   # GoReleaser snapshot build (requires goreleaser)
 
 Tests never touch the network, the real keyring, or your real config directory.
 Release notes are generated from Conventional Commits; see `CONTRIBUTING.md`.
-`ROUTEBURN_DEMO=1 routeburn` renders the dashboard with synthetic fixtures, which
-is how the screenshot above is produced without spending credits.
+The screenshot above is an illustration with placeholder values, not a recorded
+account.
 
 ## Contributing and license
 

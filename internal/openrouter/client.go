@@ -234,12 +234,16 @@ type AnalyticsQuery struct {
 
 func (q AnalyticsQuery) marshal() ([]byte, error) {
 	body := map[string]any{
-		"metrics":     q.Metrics,
-		"granularity": q.Granularity,
+		"metrics": q.Metrics,
 		"time_range": map[string]string{
 			"start": q.Start.UTC().Format(time.RFC3339),
 			"end":   q.End.UTC().Format(time.RFC3339),
 		},
+	}
+	// An empty granularity is sent as omitted, not as "": the API rejects the
+	// empty string but aggregates the whole range when the field is absent.
+	if q.Granularity != "" {
+		body["granularity"] = q.Granularity
 	}
 	if len(q.Dimensions) > 0 {
 		body["dimensions"] = q.Dimensions

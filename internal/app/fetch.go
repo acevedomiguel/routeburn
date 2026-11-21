@@ -84,13 +84,14 @@ func FetchSnapshot(ctx context.Context, api API, opts FetchOptions) (domain.Snap
 	}()
 	go func() {
 		defer wg.Done()
+		// No granularity: the API aggregates per model across the whole range in
+		// a single row. Asking per day returned one row per model per day, which
+		// then had to be summed locally and silently truncated by Limit.
 		modelRows, modelErr = api.QueryAnalytics(ctx, or.AnalyticsQuery{
-			Metrics:     []string{"total_usage", "tokens_total"},
-			Dimensions:  []string{"model"},
-			Granularity: "day",
-			Start:       fetchRange.Start,
-			End:         fetchRange.End,
-			Limit:       10,
+			Metrics:    []string{"total_usage", "tokens_total"},
+			Dimensions: []string{"model"},
+			Start:      fetchRange.Start,
+			End:        fetchRange.End,
 		})
 	}()
 	wg.Wait()
@@ -102,8 +103,9 @@ func FetchSnapshot(ctx context.Context, api API, opts FetchOptions) (domain.Snap
 		return domain.Snapshot{}, fmt.Errorf("app: account credits: %w", creditsErr)
 	}
 
-	// Key details are optional and need their own request. Only attempted when
-	// the client has a regular API key configured.
+	// Key details are optional and need their own request. They are kept in the
+	// snapshot for the JSON contract but are not rendered as a card: the
+	// dashboard reports account credit, not the per-key limit.
 	keyInfo, keyErr = api.Key(ctx)
 	keyMissing = errors.Is(keyErr, or.ErrMissingAPIKey)
 	if keyMissing {
@@ -194,9 +196,11 @@ func FetchSnapshot(ctx context.Context, api API, opts FetchOptions) (domain.Snap
 	warnings = append(warnings, snap.Runway.Warnings...)
 
 	switch {
-	case keyErr != nil:
+	case keyErr != nil && !keyMissing:
+		// A broken key must not spam the dashboard, but the JSON contract still
+		// reports it so scripts can tell "no key" from "key rejected".
 		warnings = append(warnings, domain.Warning{
-			Section: "This API key",
+			Section: "API key",
 			Message: fmt.Sprintf("could not load key details: %v", redactedError(keyErr)),
 		})
 		if opts.Previous != nil {
@@ -230,6 +234,10 @@ func toDailyRows(rows []or.AnalyticsRow) []domain.DailyUsage {
 	return out
 }
 
+// toModelRows copies rows that carry a model name. The analytics query asks
+// for one row per model across the whole range, so no local aggregation is
+// needed; rows without a model are ignored rather than summed into a
+// meaningless "" entry.
 func toModelRows(rows []or.AnalyticsRow) []domain.ModelUsage {
 	out := make([]domain.ModelUsage, 0, len(rows))
 	for _, r := range rows {

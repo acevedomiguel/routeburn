@@ -53,13 +53,11 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 		creditsCard(snap, opts, lay),
 		runwayCard(snap, opts, lay),
 		last30Card(snap, opts, lay),
-		keyCard(snap, opts, lay),
 	}
 
 	if lay.TwoColumn {
 		left := cards[0] + "\n" + cards[1]
-		right := cards[2] + "\n" + cards[3]
-		b.WriteString(twoColumns(left, right, lay.ContentWidth))
+		b.WriteString(twoColumns(left, cards[2], lay.ContentWidth))
 	} else {
 		for i, c := range cards {
 			if i > 0 {
@@ -71,8 +69,7 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 
 	b.WriteString("\n\n")
 	if snap != nil {
-		b.WriteString(DailyChart(snap.Daily, ChartOptions{Width: lay.ContentWidth, Height: 5, Styles: opts.Styles}))
-		b.WriteString("\n")
+		b.WriteString(Sparkline(snap.Daily, ChartOptions{Width: lay.ContentWidth, Styles: opts.Styles}))
 	}
 	b.WriteString(modelsCard(snap, opts, lay))
 
@@ -170,13 +167,10 @@ func creditsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 		return card(t, lay, "Credits remaining", t.Muted.Render("loading"))
 	}
 	acct := snap.Account
-	pct, clamped := Percent(acct.Remaining, acct.TotalPurchased)
 
-	var lines []string
-	lines = append(lines, t.Value.Render(domain.FormatCredits(acct.Remaining))+" / "+t.Muted.Render(domain.FormatCredits(acct.TotalPurchased)))
-	lines = append(lines, Meter(clamped, barWidthFor(lay), t)+" "+fmt.Sprintf("%s%% remaining", formatPercent(pct)))
-	if snap.Runway.DailyBurn > 0 {
-		lines = append(lines, t.Muted.Render("at "+domain.FormatCredits(snap.Runway.DailyBurn)+"/day"))
+	lines := []string{t.Value.Render(domain.FormatCredits(acct.Remaining))}
+	if acct.Remaining < 0 {
+		lines = append(lines, t.Warning.Render("account is over its purchased credit"))
 	}
 	return card(t, lay, "Credits remaining", strings.Join(lines, "\n"))
 }
@@ -199,7 +193,12 @@ func runwayCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 	if rw.Basis == domain.BasisUnavailable {
 		lines = append(lines, t.Muted.Render("analytics unavailable"))
 	} else if rw.WindowDays > 0 {
-		lines = append(lines, t.Muted.Render(fmt.Sprintf("based on %s over %d days", domain.FormatCredits(rw.WindowSpend), rw.WindowDays)))
+		// The runway window deliberately excludes today, so it never reports a
+		// different total under the same "last 30 days" label.
+		lines = append(lines, t.Muted.Render(fmt.Sprintf("%d complete days", rw.WindowDays)))
+		if rw.DailyBurn > 0 {
+			lines = append(lines, t.Muted.Render("average "+domain.FormatCredits(rw.DailyBurn)+"/day"))
+		}
 	}
 	return card(t, lay, "Estimated runway", strings.Join(lines, "\n"))
 }
@@ -218,34 +217,6 @@ func last30Card(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 		t.Label.Render("Tokens: ") + t.Value.Render(domain.FormatTokens(snap.TotalTokens)),
 	}
 	return card(t, lay, "Last 30 days", strings.Join(rows, "\n"))
-}
-
-func keyCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
-	t := opts.Styles
-	if snap == nil || snap.Key == nil {
-		return card(t, lay, "This API key", t.Muted.Render("not configured"))
-	}
-	k := snap.Key
-	limitText := "unlimited"
-	used := ""
-	if k.Limit != nil {
-		limitText = domain.FormatCredits(*k.Limit)
-		if k.LimitRemaining != nil {
-			_, clamped := Percent(*k.Limit-*k.LimitRemaining, *k.Limit)
-			used = " " + Meter(clamped, minInt(barWidthFor(lay), 12), t)
-		}
-	}
-	rows := []string{t.Label.Render("Limit:     ") + t.Value.Render(limitText) + used}
-	if k.LimitRemaining != nil {
-		rows = append(rows, t.Label.Render("Remaining: ")+t.Value.Render(domain.FormatCredits(*k.LimitRemaining)))
-	}
-	if k.UsageMonthly > 0 {
-		rows = append(rows, t.Label.Render("Month:     ")+t.Value.Render(domain.FormatCredits(k.UsageMonthly)))
-	}
-	if k.Label != "" {
-		rows = append(rows, t.Muted.Render(truncate(k.Label, lay.ContentWidth-4)))
-	}
-	return card(t, lay, "This API key", strings.Join(rows, "\n"))
 }
 
 func modelsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
@@ -379,24 +350,6 @@ func scroll(body string, offset, height int) string {
 	return strings.Join(lines[offset:end], "\n")
 }
 
-func barWidthFor(lay Layout) int {
-	w := lay.ContentWidth / 2
-	if w < 8 {
-		w = 8
-	}
-	if w > 24 {
-		w = 24
-	}
-	return w
-}
-func formatPercent(v float64) string {
-	if v >= 10 || v == 0 {
-		return fmt.Sprintf("%.0f", v)
-	}
-	return fmt.Sprintf("%.1f", v)
-}
-
-// padRight pads using display width so ANSI escapes do not skew the column.
 func padRight(s string, width int) string {
 	w := lipgloss.Width(s)
 	if w >= width {

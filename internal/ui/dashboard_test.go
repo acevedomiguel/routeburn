@@ -52,34 +52,18 @@ func TestHelpBarFitsNarrowWidths(t *testing.T) {
 
 // The credits meter is the bubbles progress bar. Without a fill it renders no
 // bar at all, so the presence of the empty rune proves the bubble is in use.
-func TestCreditsMeterUsesBubblesProgress(t *testing.T) {
+// The credits card shows the remaining balance only: the purchased total and
+// the progress meter were removed at the user's request.
+func TestCreditsCardShowsOnlyRemaining(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
 	out := Render(&snap, ViewOptions{Width: 100, Height: 30, Styles: plainStyles(), Now: fixedNow()})
-	if !strings.Contains(out, "░") {
-		t.Fatalf("expected a bubbles progress bar (empty rune), got:\n%s", out)
+	if !strings.Contains(out, "$42.10") {
+		t.Fatalf("expected the remaining balance, got:\n%s", out)
 	}
-	if strings.Contains(out, "[#####") {
-		t.Fatal("the hand-rolled bracketed bar is still rendered")
-	}
-}
-
-func TestMeterWidthIsExact(t *testing.T) {
-	s := plainStyles()
-	for _, w := range []int{4, 8, 12, 20, 30} {
-		out := Meter(50, w, s)
-		if got := lipgloss.Width(out); got != w {
-			t.Errorf("Meter width %d rendered %d columns: %q", w, got, out)
+	for _, unwanted := range []string{"$100.00", "% remaining", "[#####"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("credits card must not show %q:\n%s", unwanted, out)
 		}
-	}
-}
-
-func TestMeterClampsOutOfRange(t *testing.T) {
-	s := plainStyles()
-	if out := Meter(-20, 10, s); strings.Contains(out, "█") {
-		t.Errorf("negative percent must not fill: %q", out)
-	}
-	if out := Meter(400, 10, s); !strings.Contains(out, "█") {
-		t.Errorf("over 100 percent must fill: %q", out)
 	}
 }
 

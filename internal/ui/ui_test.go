@@ -77,43 +77,6 @@ func TestTooSmallMessage(t *testing.T) {
 	}
 }
 
-func TestProgressPercent(t *testing.T) {
-	cases := []struct {
-		name        string
-		part, tot   float64
-		want, wantP float64
-	}{
-		{"half", 50, 100, 50, 50},
-		{"zero total", 10, 0, 0, 0},
-		{"negative total", 10, -5, 0, 0},
-		{"over budget", 250, 100, 250, 100},
-		{"negative part", -10, 100, -10, 0},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			pct, clamped := Percent(tc.part, tc.tot)
-			if pct != tc.want {
-				t.Errorf("Percent = %v, want %v", pct, tc.want)
-			}
-			if clamped != tc.wantP {
-				t.Errorf("clamped = %v, want %v", clamped, tc.wantP)
-			}
-		})
-	}
-}
-
-func TestBarWidthIsStable(t *testing.T) {
-	for width := 1; width <= 40; width++ {
-		bar := Bar(50, width)
-		if !strings.HasPrefix(bar, "[") || !strings.HasSuffix(bar, "]") {
-			t.Fatalf("width %d: bar %q is not bracketed", width, bar)
-		}
-	}
-	if len([]rune(Bar(100, 10))) != len([]rune(Bar(0, 10))) {
-		t.Error("bar width must not depend on the value")
-	}
-}
-
 func TestFormatAge(t *testing.T) {
 	cases := []struct {
 		d    time.Duration
