@@ -220,14 +220,22 @@ func modelsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 		})
 	}
 
-	nameWidth := lay.ContentWidth - 14
+	leftWidth := lay.ContentWidth
+	if lay.TwoColumn {
+		leftWidth = (lay.ContentWidth - 2) / 2
+	}
+
+	// Reserve room for the spend column so it is never truncated away.
+	const spendWidth = 8
+	nameWidth := leftWidth - spendWidth - 1
 	if nameWidth < 10 {
 		nameWidth = 10
 	}
+
 	var lines []string
 	for _, m := range show {
 		name := truncate(m.Model, nameWidth)
-		lines = append(lines, padRight(name, nameWidth)+" "+padLeft(domain.FormatCredits(m.CreditSpend), 8))
+		lines = append(lines, padRight(name, nameWidth)+" "+padLeft(domain.FormatCredits(m.CreditSpend), spendWidth))
 	}
 
 	tok := ""
