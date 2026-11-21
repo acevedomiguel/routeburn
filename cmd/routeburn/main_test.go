@@ -6,18 +6,25 @@ import (
 	"testing"
 )
 
+// runCLI adapts the four-argument run for tests.
+func runCLI(t *testing.T, args ...string) (code int, stdout, stderr string) {
+	t.Helper()
+	var out, errOut bytes.Buffer
+	code = run(args, strings.NewReader(""), &out, &errOut)
+	return code, out.String(), errOut.String()
+}
+
 func TestRunVersionPrintsDevVersion(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"--version"}, &stdout, &stderr)
+	code, stdout, stderr := runCLI(t, "--version")
 
 	if code != 0 {
-		t.Fatalf("exit code = %d, want 0 (stderr: %s)", code, stderr.String())
+		t.Fatalf("exit code = %d, want 0 (stderr: %s)", code, stderr)
 	}
-	if got, want := stdout.String(), "routeburn version dev\n"; got != want {
+	if got, want := stdout, "routeburn version dev\n"; got != want {
 		t.Errorf("stdout = %q, want %q", got, want)
 	}
-	if stderr.Len() != 0 {
-		t.Errorf("stderr = %q, want empty", stderr.String())
+	if stderr != "" {
+		t.Errorf("stderr = %q, want empty", stderr)
 	}
 }
 
@@ -26,45 +33,149 @@ func TestRunVersionUsesLdflagsVariable(t *testing.T) {
 	version = "1.2.3"
 	t.Cleanup(func() { version = old })
 
-	var stdout, stderr bytes.Buffer
-	run([]string{"--version"}, &stdout, &stderr)
-
-	if got, want := strings.TrimSpace(stdout.String()), "routeburn version 1.2.3"; got != want {
+	_, stdout, _ := runCLI(t, "--version")
+	if got, want := strings.TrimSpace(stdout), "routeburn version 1.2.3"; got != want {
 		t.Errorf("stdout = %q, want %q", got, want)
 	}
 }
 
-func TestRunHelpListsOnlySupportedFlags(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"--help"}, &stdout, &stderr)
-
+func TestRunHelpListsSupportedFlags(t *testing.T) {
+	code, stdout, _ := runCLI(t, "--help")
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	out := stdout.String()
-	for _, want := range []string{"Usage:", "routeburn", "--version", "--help"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("help output missing %q:\n%s", want, out)
-		}
-	}
-	for _, unwanted := range []string{"--json", "--refresh", "setup"} {
-		if strings.Contains(out, unwanted) {
-			t.Errorf("help output advertises unimplemented option %q:\n%s", unwanted, out)
+	for _, want := range []string{"Usage:", "routeburn setup", "--json", "--refresh", "--no-cache", "--no-color", "--version", "--help", "Exit codes:"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("help output missing %q:\n%s", want, stdout)
 		}
 	}
 }
 
 func TestRunUnknownFlagIsUsageError(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"--nope"}, &stdout, &stderr)
-
+	code, stdout, stderr := runCLI(t, "--nope")
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
-	if stdout.Len() != 0 {
-		t.Errorf("stdout = %q, want empty", stdout.String())
+	if stdout != "" {
+		t.Errorf("stdout = %q, want empty", stdout)
 	}
-	if !strings.Contains(stderr.String(), "flag provided but not defined") {
-		t.Errorf("stderr = %q, want flag error", stderr.String())
+	if !strings.Contains(stderr, "flag provided but not defined") {
+		t.Errorf("stderr = %q, want flag error", stderr)
+	}
+}
+
+func TestRunUnknownCommandIsUsageError(t *testing.T) {
+	code, _, stderr := runCLI(t, "frobnicate")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "unknown command") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestRefreshBelowFloorIsRejected(t *testing.T) {
+	code, _, stderr := runCLI(t, "--refresh", "5s")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "10s or greater") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestNegativeRefreshIsRejected(t *testing.T) {
+	code, _, _ := runCLI(t, "--refresh", "-1s")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+}
+
+func TestConfigPathPrintsPath(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	code, stdout, stderr := runCLI(t, "config", "path")
+	if code != 0 {
+		t.Fatalf("exit code = %d (stderr %q)", code, stderr)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(stdout), "routeburn/config.yaml") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestConfigPathHonorsExplicitConfig(t *testing.T) {
+	code, stdout, _ := runCLI(t, "--config", "/tmp/custom.yaml", "config", "path")
+	if code != 0 {
+		t.Fatalf("exit code = %d", code)
+	}
+	if got, want := strings.TrimSpace(stdout), "/tmp/custom.yaml"; got != want {
+		t.Errorf("stdout = %q, want %q", got, want)
+	}
+}
+
+func TestConfigWithoutSubcommandIsUsageError(t *testing.T) {
+	code, _, stderr := runCLI(t, "config")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "routeburn config") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestConfigResetWritesSample(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/routeburn/config.yaml"
+
+	code, stdout, stderr := runCLI(t, "--config", path, "config", "reset")
+	if code != 0 {
+		t.Fatalf("exit code = %d (stderr %q)", code, stderr)
+	}
+	if !strings.Contains(stdout, path) {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestMissingCredentialsExitThreeWithInstructions(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", home+"/.config")
+	t.Setenv("XDG_CACHE_HOME", home+"/.cache")
+	t.Setenv("ROUTEBURN_KEYRING", "false")
+	t.Setenv("ROUTEBURN_MANAGEMENT_KEY", "")
+	t.Setenv("OPENROUTER_API_KEY", "")
+
+	code, stdout, stderr := runCLI(t, "--json")
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (stdout %q, stderr %q)", code, stdout, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, "routeburn setup") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestParseAcceptsZeroRefresh(t *testing.T) {
+	opts, err := parse([]string{"--refresh", "0", "--json"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !opts.refreshSet || opts.refresh != 0 {
+		t.Fatalf("opts = %+v", opts)
+	}
+	if !opts.jsonMode {
+		t.Fatal("--json not parsed")
+	}
+}
+
+func TestParseHelpBeatsFlagErrors(t *testing.T) {
+	opts, err := parse([]string{"--nope", "--help"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if opts.command != "help" {
+		t.Fatalf("command = %q", opts.command)
 	}
 }
