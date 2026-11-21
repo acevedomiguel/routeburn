@@ -13,18 +13,11 @@ average $0.41/day
 Daily credit spend
 ▁▁▂▃▂▁▁▄▆▃▂▂▆█▅▂▁▂▂▄▃▃▂▄▃▂▁▂▃▂ peak $1.20 on Nov 05
 Cost by model
-Model                                 Spend      Total       8.4M
-anthropic/claude-sonnet-4             $7.21      Cache hit  18.4%
-openai/gpt-5                          $3.82
-meta/llama-4-70b                      $1.31
-
-
-
-
-
-
-
-
+Tokens 8.4M   Cache hit 18.4%
+Model                      Spend
+anthropic/claude-sonnet-4  $7.21
+openai/gpt-5               $3.82
+meta/llama-4-70b           $1.31
 
  [r] refresh  [j/k] scroll  [?] help  [q] quit
 ```

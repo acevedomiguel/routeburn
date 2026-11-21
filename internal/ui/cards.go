@@ -246,15 +246,21 @@ func modelsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 		})
 	}
 
-	leftWidth := lay.ContentWidth
-	if lay.TwoColumn {
-		leftWidth = (lay.ContentWidth - 2) / 2
-	}
-
-	// The table bubble owns alignment and truncation. Reserve the spend column
-	// so money is never the thing that gets clipped.
 	const spendWidth = 9
-	nameWidth := leftWidth - spendWidth
+	// Size the name column to its content instead of the full terminal width,
+	// so the spend column sits next to the model names rather than being pushed
+	// to the far edge.
+	nameWidth := lipgloss.Width("Model")
+	for _, m := range show {
+		if w := lipgloss.Width(m.Model); w > nameWidth {
+			nameWidth = w
+		}
+	}
+	// The table bubble pads every cell by one space on each side.
+	nameWidth += 2
+	if max := lay.ContentWidth - spendWidth - 2; nameWidth > max {
+		nameWidth = max
+	}
 	if nameWidth < 12 {
 		nameWidth = 12
 	}
@@ -267,21 +273,27 @@ func modelsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 		{Title: "Model", Width: nameWidth},
 		{Title: "Spend", Width: spendWidth},
 	}, rows, t)
-	left := tbl.View()
 
-	tok := ""
+	// The token total belongs to the whole breakdown, so it is a summary line
+	// under the heading rather than a second column next to the table. Placing
+	// it beside the table interleaved two lines of totals into the first two
+	// model rows.
+	summary := t.Label.Render("Tokens ") + t.Value.Render(domain.FormatTokens(snap.TotalTokens))
 	if snap.CacheHitRate != nil {
-		tok = t.Label.Render("Cache hit  ") + t.Value.Render(fmt.Sprintf("%.1f%%", *snap.CacheHitRate))
-	}
-	right := t.Label.Render("Total       ") + t.Value.Render(domain.FormatTokens(snap.TotalTokens))
-	if tok != "" {
-		right += "\n" + tok
+		summary += t.Label.Render("   Cache hit ") + t.Value.Render(fmt.Sprintf("%.1f%%", *snap.CacheHitRate))
 	}
 
-	if lay.TwoColumn {
-		return head + "\n" + twoColumns(left, right, lay.ContentWidth)
+	return head + "\n" + summary + "\n" + trimTrailingSpace(tbl.View())
+}
+
+// trimTrailingSpace removes the padding the table bubble adds past the last
+// column, so rendered lines do not carry invisible trailing spaces.
+func trimTrailingSpace(view string) string {
+	lines := strings.Split(view, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " ")
 	}
-	return head + "\n" + left + "\n\n" + t.CardHead.Render("Token usage") + "\n" + right
+	return strings.Join(lines, "\n")
 }
 
 func card(t Styles, lay Layout, title, body string) string {

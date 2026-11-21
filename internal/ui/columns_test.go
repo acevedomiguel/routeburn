@@ -7,9 +7,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The model card shares its row with the token summary, so the spend column must
-// survive the column split. Truncating it to "..." makes the card useless.
-func TestModelCardKeepsSpendValuesInTwoColumnLayout(t *testing.T) {
+// The model card spans the full content width, so the spend column must survive
+// the wide layout. Truncating it to "..." makes the card useless.
+func TestModelCardKeepsSpendValuesInWideLayout(t *testing.T) {
 	snap := SampleSnapshot()
 
 	for _, width := range []int{100, 110, 120, 140} {
@@ -39,7 +39,7 @@ func TestModelCardTokenSummaryIsVisible(t *testing.T) {
 	snap := SampleSnapshot()
 	out := Render(&snap, ViewOptions{Width: 100, Height: 40, Styles: NewStyles(false), Now: snap.GeneratedAt})
 
-	for _, want := range []string{"Total", "8.4M", "Cache hit", "18.4%"} {
+	for _, want := range []string{"Tokens", "8.4M", "Cache hit", "18.4%"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q:\n%s", want, out)
 		}
