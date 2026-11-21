@@ -21,7 +21,6 @@ type setupStep int
 
 const (
 	setupManagement setupStep = iota
-	setupAPIKey
 	setupValidating
 	setupDone
 )
@@ -92,13 +91,8 @@ func (s *setupModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Exit without writing a partial configuration.
 		return s, tea.Quit
 	case "esc":
-		switch s.step {
-		case setupAPIKey:
-			// Skipping the optional key keeps the saved management key.
-			return s, s.saveAndQuit(false)
-		default:
-			return s, tea.Quit
-		}
+		// Setup has a single required step, so Esc cannot mean "skip".
+		return s, tea.Quit
 	case "enter":
 		return s.submit()
 	}
@@ -119,19 +113,11 @@ func (s *setupModel) submit() (tea.Model, tea.Cmd) {
 		s.creds.Management = value
 		s.input.SetValue("")
 		s.banner = ""
-		s.step = setupAPIKey
-		return s, nil
-	case setupAPIKey:
-		if value != "" {
-			s.creds.APIKey = value
-		}
-		s.input.SetValue("")
 		s.step = setupValidating
-		management, apiKey := s.creds.Management, s.creds.APIKey
+		management := s.creds.Management
 		return s, func() tea.Msg {
 			client, err := or.NewClient(
 				or.WithManagementKey(management),
-				or.WithAPIKey(apiKey),
 				or.WithVersion(version),
 			)
 			if err != nil {
@@ -149,28 +135,22 @@ func (s *setupModel) submit() (tea.Model, tea.Cmd) {
 func (s *setupModel) handleValidation(msg validationMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		// Keep the entered token in memory so retry needs no retyping.
-		s.step = setupAPIKey
+		s.step = setupManagement
 		s.banner = "Validation failed: " + credentials.Redact(msg.err.Error())
 		s.notice = "Press Enter to retry, or Esc to cancel."
 		return s, nil
 	}
-	return s, s.saveAndQuit(true)
+	return s, s.saveAndQuit()
 }
 
 // saveAndQuit stores the credentials, then exits the wizard.
-func (s *setupModel) saveAndQuit(withAPIKey bool) tea.Cmd {
+func (s *setupModel) saveAndQuit() tea.Cmd {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := s.store.Save(ctx, credentials.KindManagement, s.creds.Management); err != nil {
 		s.banner = "Could not store the management key: " + credentials.Redact(err.Error())
 		return nil
-	}
-	if withAPIKey && s.creds.APIKey != "" {
-		if err := s.store.Save(ctx, credentials.KindAPIKey, s.creds.APIKey); err != nil {
-			s.banner = "Could not store the API key: " + credentials.Redact(err.Error())
-			return nil
-		}
 	}
 
 	cfgPath := s.paths.ConfigFile
@@ -187,18 +167,12 @@ func (s *setupModel) saveAndQuit(withAPIKey bool) tea.Cmd {
 }
 
 func (s *setupModel) View() string {
-	step := 0
-	if s.step != setupManagement {
-		step = 1
-	}
-
 	keyLen := len([]rune(s.input.Value()))
 	return ui.SetupView(ui.SetupOptions{
 		Width:      s.width,
 		Height:     s.height,
 		Styles:     s.styles,
 		Banner:     s.banner,
-		Step:       step,
 		KeyLen:     keyLen,
 		Validating: s.step == setupValidating,
 		Notice:     s.notice,

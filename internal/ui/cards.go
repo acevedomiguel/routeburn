@@ -192,13 +192,8 @@ func runwayCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 	lines := []string{value}
 	if rw.Basis == domain.BasisUnavailable {
 		lines = append(lines, t.Muted.Render("analytics unavailable"))
-	} else if rw.WindowDays > 0 {
-		// The runway window deliberately excludes today, so it never reports a
-		// different total under the same "last 30 days" label.
-		lines = append(lines, t.Muted.Render(fmt.Sprintf("%d complete days", rw.WindowDays)))
-		if rw.DailyBurn > 0 {
-			lines = append(lines, t.Muted.Render("average "+domain.FormatCredits(rw.DailyBurn)+"/day"))
-		}
+	} else if rw.DailyBurn > 0 {
+		lines = append(lines, t.Muted.Render("average "+domain.FormatCredits(rw.DailyBurn)+"/day"))
 	}
 	return card(t, lay, "Estimated runway", strings.Join(lines, "\n"))
 }

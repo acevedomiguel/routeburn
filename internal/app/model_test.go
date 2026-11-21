@@ -334,6 +334,11 @@ func TestRefreshKeysAndQuit(t *testing.T) {
 				t.Fatal("ctrl+c must quit")
 			}
 		}},
+		{"esc", func(t *testing.T, m *Model, cmd tea.Cmd) {
+			if cmd == nil {
+				t.Fatal("esc must quit")
+			}
+		}},
 		{"?", func(t *testing.T, m *Model, cmd tea.Cmd) {
 			if !m.helpVisible {
 				t.Fatal("? must show help")
@@ -349,6 +354,25 @@ func TestRefreshKeysAndQuit(t *testing.T) {
 			m := testModel(t, testModelOptions{})
 			tc.check(t, m, keyCmd(m, tc.key))
 		})
+	}
+}
+
+func TestEscClosesHelpBeforeQuitting(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	keyCmd(m, "?")
+	if !m.helpVisible {
+		t.Fatal("? must open help")
+	}
+	// The first Esc dismisses the overlay and must not quit the app.
+	if cmd := keyCmd(m, "esc"); cmd != nil {
+		t.Fatal("esc must only close the overlay while help is open")
+	}
+	if m.helpVisible {
+		t.Fatal("esc must close the overlay")
+	}
+	// With no overlay open, Esc quits.
+	if cmd := keyCmd(m, "esc"); cmd == nil {
+		t.Fatal("esc must quit when no overlay is open")
 	}
 }
 

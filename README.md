@@ -8,18 +8,15 @@ Credits remaining                                Last 30 days
 $42.10                                           Spend: $11.29
 Estimated runway                                 Tokens: 8.4M
 102 days - ~Mar 03
-30 complete days
 average $0.41/day
 
 Daily credit spend
 ▁▁▂▃▂▁▁▄▆▃▂▂▆█▅▂▁▂▂▄▃▃▂▄▃▂▁▂▃▂ peak $1.20 on Nov 05
 Cost by model
 Model                                 Spend      Total       8.4M
-deepseek/deepseek-v4.1-flash-20260910 $6.42      Cache hit  18.4%
-moonshotai/kimi-k3.1-pro-20261023     $4.11
-google/gemini-2.5-pro                 $0.55
-mistralai/mistral-large               $0.21
-
+anthropic/claude-sonnet-4             $7.21      Cache hit  18.4%
+openai/gpt-5                          $3.82
+meta/llama-4-70b                      $1.31
 
 
 

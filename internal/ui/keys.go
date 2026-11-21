@@ -48,7 +48,7 @@ func NewKeyMap() KeyMap {
 		),
 		Close: key.NewBinding(
 			key.WithKeys("esc"),
-			key.WithHelp("[esc]", "close"),
+			key.WithHelp("[esc]", "quit"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
@@ -65,9 +65,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 // FullHelp is the grouped overlay. SetUp remains the same as the footer.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Refresh, k.Down, k.PageDown},
-		{k.Up, k.PageUp, k.Close},
-		{k.Help, k.Quit},
+		{k.Refresh, k.Down, k.Help},
+		{k.Up, k.PageUp, k.PageDown},
+		{k.Close, k.Quit},
 	}
 }
 

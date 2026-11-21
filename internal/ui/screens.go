@@ -10,7 +10,6 @@ type SetupOptions struct {
 	Height     int
 	Styles     Styles
 	Banner     string
-	Step       int
 	KeyMasked  string
 	KeyLen     int
 	Validating bool
@@ -44,9 +43,6 @@ func SetupView(opts SetupOptions) string {
 	}
 
 	label := "Management key: "
-	if opts.Step > 0 {
-		label = "API key (optional): "
-	}
 	masked := strings.Repeat("*", opts.KeyLen)
 	if opts.KeyLen == 0 {
 		masked = t.Muted.Render("(not entered)")
@@ -64,7 +60,7 @@ func SetupView(opts SetupOptions) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(t.Help.Render("Enter to continue   Esc to skip   Ctrl+C to quit"))
+	b.WriteString(t.Help.Render("Enter to continue   Esc to quit   Ctrl+C to quit"))
 
 	return b.String()
 }

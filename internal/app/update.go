@@ -98,9 +98,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.helpVisible = true
 		return m, nil
 	case "esc":
-		m.helpVisible = false
-		m.scroll = 0
-		return m, nil
+		// Esc dismisses the overlay when it is open, but with the dashboard in
+		// view it is the same as q: it closes the app.
+		m.cancelInFlight()
+		return m, tea.Quit
 	case "r":
 		if ok, wait := m.RequestRefresh(); !ok {
 			if wait > 0 {
