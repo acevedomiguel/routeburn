@@ -151,9 +151,12 @@ storage automatically.
 | Credits remaining | `total_credits - total_usage`. Negative values are shown, never clamped. |
 | Last 30 days | Sum of daily credit spend and tokens over the current UTC day plus the 29 before it. |
 | Estimated runway | Days until the balance reaches zero at the recent burn rate. |
-| This API key | Per-key credit limit and remaining limit, if a regular key is configured. |
-| Daily credit spend | One bucket per UTC day for the 30-day window. |
-| Cost by model | Model spend for the same window, highest first, top four plus `Other (remaining)`. |
+| Daily credit spend | One block per UTC day for the 30-day window, with the peak day named. |
+| Cost by model | Model spend for the window, highest first, top four plus `Other (remaining)`. |
+
+The dashboard does not render the per-key limit: it answers account credit
+questions, and a key limit is a separate scope with its own reset cycle. The
+section is still present in `--json` when a regular key is configured.
 
 Token counts are not credit balances. The number of tokens a credit buys depends
 on the model mix.
