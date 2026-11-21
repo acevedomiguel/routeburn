@@ -12,6 +12,8 @@ import (
 	"github.com/acevedomiguel/routeburn/internal/cache"
 	"github.com/acevedomiguel/routeburn/internal/domain"
 	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/ui"
+	"github.com/charmbracelet/bubbles/spinner"
 )
 
 // Model is the Bubble Tea model for the whole application.
@@ -42,6 +44,8 @@ type Model struct {
 	scroll      int
 
 	gen int
+
+	spinner spinner.Model
 
 	cancelMu    sync.Mutex
 	cancelFetch context.CancelFunc
@@ -115,14 +119,15 @@ func New(deps Deps) *Model {
 	}
 
 	m := &Model{
-		cfg:   deps.Config,
-		creds: Creds{Management: deps.Creds.Management, APIKey: deps.Creds.APIKey},
-		api:   deps.API,
-		cache: deps.Cache,
-		now:   now,
-		loc:   loc,
-		state: StateLoading,
-		gen:   0,
+		cfg:     deps.Config,
+		creds:   Creds{Management: deps.Creds.Management, APIKey: deps.Creds.APIKey},
+		api:     deps.API,
+		cache:   deps.Cache,
+		now:     now,
+		loc:     loc,
+		state:   StateLoading,
+		gen:     0,
+		spinner: ui.NewSpinner(ui.NewStyles(!deps.Config.NoColor)),
 	}
 	if deps.Fetch != nil {
 		m.fetchFn = deps.Fetch

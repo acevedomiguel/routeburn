@@ -14,7 +14,8 @@ func (m *Model) Init() tea.Cmd {
 	}
 
 	// Start a background refresh immediately; cached data is already visible.
-	return tea.Batch(m.refreshCommands())
+	// The spinner tick keeps the header animation alive while we wait.
+	return tea.Batch(m.refreshCommands(), m.spinner.Tick)
 }
 
 // StartRefresh exposes the refresh command for the CLI JSON path.

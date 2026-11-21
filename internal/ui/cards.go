@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -22,10 +23,17 @@ type ViewOptions struct {
 	Banner      string
 	HelpVisible bool
 	Scroll      int
+	Page        int
+	Pages       int
 	Refreshing  bool
+	Spinner     string
 }
 
 // Render draws the full dashboard. It never performs IO.
+//
+// The layout fills the alternate screen exactly: one header row, a scrolling
+// body, and the bubbles help bar pinned to the last row, so the bar never
+// floats in the middle of a tall terminal.
 func Render(snap *domain.Snapshot, opts ViewOptions) string {
 	if opts.Width <= 0 {
 		opts.Width = 80
@@ -36,9 +44,6 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(header(snap, opts, lay))
-	b.WriteString("\n\n")
-
 	if opts.Banner != "" {
 		b.WriteString(opts.Styles.Banner.Render(truncate(opts.Banner, lay.ContentWidth)))
 		b.WriteString("\n\n")
@@ -71,37 +76,93 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 	}
 	b.WriteString(modelsCard(snap, opts, lay))
 
-	body := b.String()
-	if lay.Scrollable && opts.Height > 0 {
-		body = scroll(body, opts.Scroll, opts.Height-2)
+	header := headerLine(snap, opts, lay)
+	footer := Footer(opts)
+
+	// Two rows are reserved: the header and the help bar. Everything else
+	// scrolls inside the viewport bubble.
+	bodyHeight := opts.Height - 2
+	if bodyHeight < 1 {
+		bodyHeight = 1
 	}
 
-	return body + "\n\n" + Footer(opts)
+	body := b.String()
+	lines := len(strings.Split(body, "\n"))
+	maxOffset := maxInt(lines-bodyHeight, 0)
+
+	// The viewport bubble takes over whenever the content is taller than the
+	// space between the header and the menu bar, regardless of width class.
+	if maxOffset > 0 {
+		pageSize := maxInt(bodyHeight, 1)
+		opts.Pages = (maxOffset + pageSize - 1) / pageSize
+		if opts.Pages < 2 {
+			opts.Pages = 2
+		}
+
+		vp := NewViewport(lay.ContentWidth, bodyHeight)
+		vp.SetContent(body)
+		offset := minInt(opts.Scroll, maxOffset)
+		vp.SetYOffset(offset)
+		body = vp.View()
+		opts.Page = minInt(offset/pageSize, opts.Pages-1)
+
+		// Recompute the menu bar now that the dot count is known.
+		footer = Footer(opts)
+	}
+	return header + "\n" + fitLines(body, bodyHeight) + "\n" + footer
 }
 
-func header(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
-	title := opts.Styles.Title.Render("RouteBurn")
+// fitLines pads or trims the body so the header and footer always land on the
+// expected rows.
+func fitLines(body string, height int) string {
+	lines := strings.Split(body, "\n")
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// headerLine renders the single top row: the wordmark on the left and the
+// freshness status right-aligned.
+func headerLine(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
+	t := opts.Styles
+	title := t.Title.Render("RouteBurn")
+	status := headerStatus(snap, opts)
+	if strings.TrimSpace(status) == "" {
+		return title
+	}
+
+	detail := t.Muted.Render(status)
+	gap := lay.Width - lipgloss.Width(title) - lipgloss.Width(status) - 2*lay.Padding
+	if gap < 1 {
+		return truncate(title+" "+status, lay.Width)
+	}
+	line := strings.Repeat(" ", lay.Padding) + title + strings.Repeat(" ", gap) + detail
+	return truncate(line, lay.Width)
+}
+
+func headerStatus(snap *domain.Snapshot, opts ViewOptions) string {
 	when := ""
 	if snap != nil && !snap.GeneratedAt.IsZero() {
 		when = snap.GeneratedAt.Format("15:04")
 	}
-	status := "Updated " + when
-	freshness := ""
-	if opts.Cached {
-		freshness = CachedLabel(opts.CacheAge, true)
-		status = freshness
-	} else if opts.Refreshing {
-		status = "Refreshing..."
+	switch {
+	case opts.Cached:
+		return CachedLabel(opts.CacheAge, true)
+	case opts.Refreshing:
+		frame := opts.Spinner
+		if frame == "" {
+			frame = ""
+		}
+		return frame + " Refreshing…"
+	case when != "":
+		return "Updated " + when
 	}
-
-	line := title + "  " + opts.Styles.Muted.Render(truncate(status, lay.ContentWidth-12))
-	if strings.TrimSpace(headerPlain(status)) == "" {
-		return title
-	}
-	return line
+	return ""
 }
-
-func headerPlain(s string) string { return s }
 
 func creditsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 	t := opts.Styles
@@ -113,8 +174,7 @@ func creditsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 
 	var lines []string
 	lines = append(lines, t.Value.Render(domain.FormatCredits(acct.Remaining))+" / "+t.Muted.Render(domain.FormatCredits(acct.TotalPurchased)))
-	barWidth := barWidthFor(lay)
-	lines = append(lines, t.Bar.Render(Bar(clamped, barWidth))+" "+fmt.Sprintf("%s%% remaining", formatPercent(pct)))
+	lines = append(lines, Meter(clamped, barWidthFor(lay), t)+" "+fmt.Sprintf("%s%% remaining", formatPercent(pct)))
 	if snap.Runway.DailyBurn > 0 {
 		lines = append(lines, t.Muted.Render("at "+domain.FormatCredits(snap.Runway.DailyBurn)+"/day"))
 	}
@@ -172,7 +232,7 @@ func keyCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 		limitText = domain.FormatCredits(*k.Limit)
 		if k.LimitRemaining != nil {
 			_, clamped := Percent(*k.Limit-*k.LimitRemaining, *k.Limit)
-			used = " " + t.Bar.Render(Bar(clamped, minInt(barWidthFor(lay), 12)))
+			used = " " + Meter(clamped, minInt(barWidthFor(lay), 12), t)
 		}
 	}
 	rows := []string{t.Label.Render("Limit:     ") + t.Value.Render(limitText) + used}
@@ -225,25 +285,28 @@ func modelsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
 		leftWidth = (lay.ContentWidth - 2) / 2
 	}
 
-	// Reserve room for the spend column so it is never truncated away.
-	const spendWidth = 8
-	nameWidth := leftWidth - spendWidth - 1
-	if nameWidth < 10 {
-		nameWidth = 10
+	// The table bubble owns alignment and truncation. Reserve the spend column
+	// so money is never the thing that gets clipped.
+	const spendWidth = 9
+	nameWidth := leftWidth - spendWidth
+	if nameWidth < 12 {
+		nameWidth = 12
 	}
 
-	var lines []string
+	rows := make([]table.Row, 0, len(show))
 	for _, m := range show {
-		name := truncate(m.Model, nameWidth)
-		lines = append(lines, padRight(name, nameWidth)+" "+padLeft(domain.FormatCredits(m.CreditSpend), spendWidth))
+		rows = append(rows, table.Row{m.Model, domain.FormatCredits(m.CreditSpend)})
 	}
+	tbl := NewTable([]table.Column{
+		{Title: "Model", Width: nameWidth},
+		{Title: "Spend", Width: spendWidth},
+	}, rows, t)
+	left := tbl.View()
 
 	tok := ""
 	if snap.CacheHitRate != nil {
 		tok = t.Label.Render("Cache hit  ") + t.Value.Render(fmt.Sprintf("%.1f%%", *snap.CacheHitRate))
 	}
-
-	left := strings.Join(lines, "\n")
 	right := t.Label.Render("Total       ") + t.Value.Render(domain.FormatTokens(snap.TotalTokens))
 	if tok != "" {
 		right += "\n" + tok
@@ -326,7 +389,6 @@ func barWidthFor(lay Layout) int {
 	}
 	return w
 }
-
 func formatPercent(v float64) string {
 	if v >= 10 || v == 0 {
 		return fmt.Sprintf("%.0f", v)

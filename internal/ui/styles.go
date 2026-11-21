@@ -32,6 +32,8 @@ type Styles struct {
 	Help     lipgloss.Style
 	Key      lipgloss.Style
 	Bar      lipgloss.Style
+
+	StatusBar lipgloss.Style
 }
 
 // NewStyles builds the style set. When enabled is false every style renders
@@ -52,27 +54,32 @@ func NewStyles(enabled bool) Styles {
 	}
 
 	return Styles{
-		Enabled:  enabled,
-		Base:     build("", false),
-		Title:    build(colorAccent, true),
-		Muted:    build(colorMuted, false),
-		Accent:   build(colorAccent, false),
-		Success:  build(colorSuccess, false),
-		Warning:  build(colorWarning, false),
-		Error:    build(colorError, false),
-		Card:     build("", false),
-		CardHead: build(colorAccent, true),
-		Label:    build(colorMuted, false),
-		Value:    build("", true),
-		Banner:   build(colorError, false),
-		Help:     build(colorMuted, false),
-		Key:      build(colorAccent, false),
-		Bar:      build(colorSuccess, false),
+		Enabled:   enabled,
+		Base:      build("", false),
+		Title:     build(colorAccent, true),
+		Muted:     build(colorMuted, false),
+		Accent:    build(colorAccent, false),
+		Success:   build(colorSuccess, false),
+		Warning:   build(colorWarning, false),
+		Error:     build(colorError, false),
+		Card:      build("", false),
+		CardHead:  build(colorAccent, true),
+		Label:     build(colorMuted, false),
+		Value:     build("", true),
+		Banner:    build(colorError, false),
+		Help:      build(colorMuted, false),
+		Key:       build(colorAccent, false),
+		Bar:       build(colorSuccess, false),
+		StatusBar: statusBarStyle(enabled),
 	}
 }
 
 // WithWidth sets a width on a style when color is enabled so padding stays
 // consistent regardless of escape sequences.
-func (s Styles) WithWidth(style lipgloss.Style, width int) lipgloss.Style {
-	return style.Width(width)
+// statusBarStyle is the full-width bottom bar background.
+func statusBarStyle(enabled bool) lipgloss.Style {
+	if !enabled {
+		return lipgloss.NewStyle().Padding(0, 1)
+	}
+	return lipgloss.NewStyle().Background(lipgloss.Color("236")).Padding(0, 1)
 }

@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/acevedomiguel/routeburn/internal/ui"
+	"github.com/charmbracelet/bubbles/spinner"
 )
 
 // Update implements tea.Model.
@@ -44,7 +45,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if cmd := m.refreshCommands(); cmd != nil {
-			return m, cmd
+			return m, tea.Batch(cmd, m.spinner.Tick)
 		}
 		return m, nil
 
@@ -54,6 +55,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorBanner = msg.err.Error()
 		}
 		return m, nil
+
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		if !m.refreshing {
+			// Stop animating once nothing is in flight.
+			return m, nil
+		}
+		return m, cmd
 
 	case noticeMsg:
 		m.notice = msg.text
@@ -101,7 +111,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.notice = ""
 		if cmd := m.refreshCommands(); cmd != nil {
-			return m, cmd
+			return m, tea.Batch(cmd, m.spinner.Tick)
 		}
 		return m, nil
 	case "j", "down":
@@ -209,7 +219,7 @@ func (m *Model) View() string {
 	styles := ui.NewStyles(m.cfg.ColorsEnabled())
 
 	if m.helpVisible {
-		return ui.HelpText(styles)
+		return ui.HelpTextAt(styles, m.width)
 	}
 
 	switch m.state {
@@ -239,6 +249,7 @@ func (m *Model) View() string {
 		Banner:     m.errorBanner,
 		Scroll:     m.scroll,
 		Refreshing: m.refreshing,
+		Spinner:    m.spinner.View(),
 	})
 }
 
