@@ -3,13 +3,12 @@
 **A read-only terminal dashboard for OpenRouter credits, spend, and runway.**
 
 ```
-RouteBurn  Updated 15:42
-
+  RouteBurn                                                                          Updated 15:42
 Credits remaining                                Last 30 days
 $42.10 / $100.00                                 Spend: $11.29
-[##########--------------] 42% remaining         Tokens: 7.9M
+██████████░░░░░░░░░░░░░░ 42% remaining           Tokens: 7.9M
 at $0.37/day                                     This API key
-Estimated runway                                 Limit:     $50.00 [#####-------]
+Estimated runway                                 Limit:     $50.00 █████░░░░░░░
 115 days - ~Mar 17                               Remaining: $31.20
 based on $10.96 over 30 days                     Month:     $18.80
                                                  production
@@ -17,20 +16,23 @@ based on $10.96 over 30 days                     Month:     $18.80
 Daily credit spend
  $1.20                                       #
                               +           +  #  +
-                           +  #           #  #  #             +           +
-            +  +           #  #  +  +  +  #  #  #  +          #  +  +     #
- $0.00   +  #  #  +  +     #  #  #  #  #  #  #  #  #    +  #  #  #  #  +  #
--------+------------------------------------------------------------------
-        Oct 23                                   Nov 07                     
+                           +  #           #  #  #             +           +              +
+            +  +           #  #  +  +  +  #  #  #  +          #  +  +     #  +  +     +  #  +
+ $0.00   +  #  #  +  +     #  #  #  #  #  #  #  #  #    +  #  #  #  #  +  #  #  #  +  #  #  #
+-------+----------------------------------------------------------------------------------------
+        Oct 23                                   Nov 07                                   Nov 21
 
 Cost by model
-anthropic/claude-sonnet-4                 $7.21  Total       7.9M
-openai/gpt-5                              $3.82  Cache hit  18.4%
-meta/llama-4-70b                          $1.31
-google/gemini-2.5-pro                     $0.62
-mistralai/mistral-large                   $0.21
+Model                                 Spend      Total       7.9M
+anthropic/claude-sonnet-4             $7.21      Cache hit  18.4%
+openai/gpt-5                          $3.82
+meta/llama-4-70b                      $1.31
+google/gemini-2.5-pro                 $0.62
+mistralai/mistral-large               $0.21
 
-[r]refresh  [j/k]scroll  [?]help  [q]quit
+
+
+ [r] refresh  [j/k] scroll  [?] help  [q] quit
 ```
 
 Synthetic data, produced with `ROUTEBURN_DEMO=1 routeburn`. No account figures
