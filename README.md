@@ -47,6 +47,11 @@ current burn rate.
 
 ## Features
 
+- Built on [Bubbles](https://github.com/charmbracelet/bubbles): the bottom bar is
+  a `help` bubble fed by a `key` KeyMap, the scroll offset is a `viewport`, the
+  credits meter is `progress`, the model breakdown is a `table`, pagination dots
+  come from `paginator`, and the refresh indicator is a `spinner`.
+- Full-screen alternate-screen layout with the menu bar pinned to the last row.
 - Account credits: purchased, used, and remaining, with negative balances shown
   rather than hidden.
 - Per-key credit limit when a regular API key is configured, clearly labelled as
@@ -293,12 +298,15 @@ Cached data can be stale. A cached runway estimate is never presented as live.
 | Key | Action |
 | --- | --- |
 | `r` | Refresh now (throttled to one batch per 10 seconds) |
-| `j` / `Down` | Scroll down on narrow terminals |
+| `j` / `Down` | Scroll down when the dashboard is taller than the terminal |
 | `k` / `Up` | Scroll up |
 | `PgDn` / `PgUp` | Scroll one screen |
-| `?` | Toggle help |
+| `?` | Toggle the help overlay |
 | `Esc` | Close help |
 | `q` / `Ctrl+C` | Quit |
+
+The menu bar on the last row always lists the keys that actually work, and
+gains pagination dots when the dashboard scrolls.
 
 When OpenRouter asks RouteBurn to slow down, both automatic and manual refreshes
 wait until the requested time has passed and the footer explains why.
