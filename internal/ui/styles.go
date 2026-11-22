@@ -1,16 +1,20 @@
 package ui
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"image/color"
+
+	"charm.land/lipgloss/v2"
 )
 
 // Palette colors, chosen to stay legible on both dark and light terminals.
-const (
-	colorAccent  = lipgloss.Color("6")
-	colorMuted   = lipgloss.Color("8")
-	colorSuccess = lipgloss.Color("2")
-	colorWarning = lipgloss.Color("3")
-	colorError   = lipgloss.Color("1")
+// lipgloss v2 turned Color into a function returning color.Color, so these
+// are variables, not constants.
+var (
+	colorAccent  color.Color = lipgloss.Color("6")
+	colorMuted   color.Color = lipgloss.Color("8")
+	colorSuccess color.Color = lipgloss.Color("2")
+	colorWarning color.Color = lipgloss.Color("3")
+	colorError   color.Color = lipgloss.Color("1")
 )
 
 // Styles bundles every Lip Gloss style used by the dashboard.
@@ -39,12 +43,12 @@ type Styles struct {
 // NewStyles builds the style set. When enabled is false every style renders
 // plain text so --no-color and NO_COLOR produce identical output.
 func NewStyles(enabled bool) Styles {
-	build := func(fg lipgloss.Color, bold bool) lipgloss.Style {
+	build := func(fg color.Color, bold bool) lipgloss.Style {
 		if !enabled {
 			return lipgloss.NewStyle()
 		}
 		s := lipgloss.NewStyle()
-		if fg != "" {
+		if fg != nil {
 			s = s.Foreground(fg)
 		}
 		if bold {
@@ -55,17 +59,17 @@ func NewStyles(enabled bool) Styles {
 
 	return Styles{
 		Enabled:   enabled,
-		Base:      build("", false),
+		Base:      build(nil, false),
 		Title:     build(colorAccent, true),
 		Muted:     build(colorMuted, false),
 		Accent:    build(colorAccent, false),
 		Success:   build(colorSuccess, false),
 		Warning:   build(colorWarning, false),
 		Error:     build(colorError, false),
-		Card:      build("", false),
+		Card:      build(nil, false),
 		CardHead:  build(colorAccent, true),
 		Label:     build(colorMuted, false),
-		Value:     build("", true),
+		Value:     build(nil, true),
 		Banner:    build(colorError, false),
 		Help:      build(colorMuted, false),
 		Key:       build(colorAccent, false),

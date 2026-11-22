@@ -3,7 +3,7 @@ package app
 import (
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Init implements tea.Model. It arms the startup refresh (or the setup

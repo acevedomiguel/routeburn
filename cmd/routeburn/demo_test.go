@@ -5,8 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"github.com/charmbracelet/colorprofile"
 )
 
 func TestParseDemoCommand(t *testing.T) {
@@ -53,9 +52,7 @@ func TestDemoModelRendersFixture(t *testing.T) {
 // Captures are only representative when color survives the recorder's
 // environment, so the demo must pin a non-Ascii color profile.
 func TestDemoForcesColorProfile(t *testing.T) {
-	t.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
-	forceDemoColorProfile()
-	if lipgloss.ColorProfile() == termenv.Ascii {
+	if demoColorProfile() == colorprofile.NoTTY || demoColorProfile() == colorprofile.Ascii {
 		t.Fatal("demo must force a color-capable profile for recordings")
 	}
 }

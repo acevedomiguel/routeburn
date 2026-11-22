@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/acevedomiguel/routeburn/internal/domain"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 )
 
 func plainStyles() Styles { return NewStyles(false) }
@@ -73,7 +72,6 @@ func TestRenderWideUsesTwoColumns(t *testing.T) {
 }
 
 func TestRenderLinesFitWidth(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.Ascii)
 	snapshot := SampleSnapshotAt(fixedNow())
 	s := NewStyles(true)
 	for _, w := range []int{60, 72, 80, 100, 140} {

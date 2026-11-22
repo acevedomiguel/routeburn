@@ -4,8 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/lipgloss/v2"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
@@ -128,10 +127,6 @@ func TestKeyMapMatchesHandledKeys(t *testing.T) {
 }
 
 func TestNoColorRenderHasNoEscapes(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.Ascii)
-	tp := t
-	tp.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
-
 	snap := SampleSnapshotAt(fixedNow())
 	out := Render(&snap, ViewOptions{Width: 100, Height: 30, Styles: NewStyles(false), Now: fixedNow()})
 	if strings.Contains(out, "\x1b[") {

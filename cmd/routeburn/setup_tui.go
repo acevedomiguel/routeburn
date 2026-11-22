@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/acevedomiguel/routeburn/internal/config"
 	"github.com/acevedomiguel/routeburn/internal/credentials"
@@ -76,7 +76,7 @@ func (s *setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case validationMsg:
 		return s.handleValidation(msg)
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return s.handleKey(msg)
 	}
 
@@ -85,7 +85,7 @@ func (s *setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, cmd
 }
 
-func (s *setupModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (s *setupModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		// Exit without writing a partial configuration.
@@ -166,9 +166,9 @@ func (s *setupModel) saveAndQuit() tea.Cmd {
 	return tea.Quit
 }
 
-func (s *setupModel) View() string {
+func (s *setupModel) View() tea.View {
 	keyLen := len([]rune(s.input.Value()))
-	return ui.SetupView(ui.SetupOptions{
+	return tea.NewView(ui.SetupView(ui.SetupOptions{
 		Width:      s.width,
 		Height:     s.height,
 		Styles:     s.styles,
@@ -176,7 +176,7 @@ func (s *setupModel) View() string {
 		KeyLen:     keyLen,
 		Validating: s.step == setupValidating,
 		Notice:     s.notice,
-	})
+	}))
 }
 
 // runSetupInteractive runs the wizard and reports the outcome.

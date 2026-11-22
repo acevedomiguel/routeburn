@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/term"
 
 	"github.com/acevedomiguel/routeburn/internal/app"
@@ -120,7 +120,6 @@ func runTUI(rt *runtime, stdin io.Reader, stdout, stderr io.Writer) int {
 	program := tea.NewProgram(model,
 		tea.WithInput(stdin),
 		tea.WithOutput(stdout),
-		tea.WithAltScreen(),
 	)
 	if _, err := program.Run(); err != nil {
 		fmt.Fprintf(stderr, "routeburn: %v\n", err)

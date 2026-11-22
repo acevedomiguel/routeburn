@@ -4,7 +4,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Box-drawing characters. The dashboard draws bordered panels like btop: every

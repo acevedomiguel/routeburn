@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
+	"charm.land/bubbles/v2/spinner"
 	"github.com/acevedomiguel/routeburn/internal/ui"
-	"github.com/charmbracelet/bubbles/spinner"
 )
 
 // Update implements tea.Model.
@@ -23,7 +23,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 
 	case cacheLoadedMsg:
@@ -74,7 +74,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKey handles every key binding.
-func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
 	if key == "ctrl+c" {
@@ -270,8 +270,16 @@ func maxInt(a, b int) int {
 	return b
 }
 
-// View implements tea.Model. It is pure rendering.
-func (m *Model) View() string {
+// View implements tea.Model. The alternate screen is requested on the view
+// itself; bubbletea v2 dropped the tea.WithAltScreen option.
+func (m *Model) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
+}
+
+// render produces the frame. It is pure rendering.
+func (m *Model) render() string {
 	styles := ui.NewStyles(m.cfg.ColorsEnabled())
 
 	if m.helpVisible {

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/acevedomiguel/routeburn/internal/cache"
+	"github.com/acevedomiguel/routeburn/internal/config"
 )
 
 // A bare invocation without credentials must run setup itself rather than
@@ -60,5 +61,19 @@ func TestJSONWithoutCredentialsStillExitsWithoutPrompting(t *testing.T) {
 	store := cache.NewStore(filepath.Join(home, ".cache", "routeburn", "snapshot.json"))
 	if _, err := store.Load(); err == nil {
 		t.Fatal("a credential failure must not write a cache")
+	}
+}
+
+// The wizard's view is a tea.View too, and it must not request the alternate
+// screen: on a 24-row terminal the password step would scroll off.
+func TestSetupModelViewIsAV2View(t *testing.T) {
+	m := newSetupModel(options{}, config.Paths{})
+	m.width, m.height = 80, 24
+	v := m.View()
+	if v.AltScreen {
+		t.Error("the setup wizard must not take the alternate screen")
+	}
+	if !strings.Contains(v.Content, "RouteBurn setup") {
+		t.Errorf("setup view = %q", v.Content)
 	}
 }

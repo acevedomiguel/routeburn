@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
+	"charm.land/bubbles/v2/spinner"
 	"github.com/acevedomiguel/routeburn/internal/cache"
 	"github.com/acevedomiguel/routeburn/internal/domain"
 	or "github.com/acevedomiguel/routeburn/internal/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/ui"
-	"github.com/charmbracelet/bubbles/spinner"
 )
 
 // Model is the Bubble Tea model for the whole application.

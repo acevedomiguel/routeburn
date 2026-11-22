@@ -6,9 +6,8 @@ import (
 	"io"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/colorprofile"
 
 	"github.com/acevedomiguel/routeburn/internal/app"
 	"github.com/acevedomiguel/routeburn/internal/domain"
@@ -34,10 +33,10 @@ func demoModel(now func() time.Time) *app.Model {
 	})
 }
 
-// forceDemoColorProfile pins the lipgloss profile so recordings render in
-// color regardless of the recorder's environment.
-func forceDemoColorProfile() {
-	lipgloss.SetColorProfile(termenv.ANSI256)
+// demoColorProfile pins the color profile so recordings render in color
+// regardless of the recorder's environment.
+func demoColorProfile() colorprofile.Profile {
+	return colorprofile.ANSI256
 }
 
 // runDemo starts the dashboard on the synthetic fixture. It is intentionally
@@ -47,14 +46,12 @@ func runDemo(stdin io.Reader, stdout, stderr io.Writer) int {
 	// non-tty probe would silently flatten the dashboard to plain text. The
 	// demo exists to produce representative captures, so it pins the profile
 	// the way an interactive terminal would present it.
-	forceDemoColorProfile()
-
 	model := demoModel(func() time.Time { return time.Now().UTC() })
 
 	program := tea.NewProgram(model,
 		tea.WithInput(stdin),
 		tea.WithOutput(stdout),
-		tea.WithAltScreen(),
+		tea.WithColorProfile(demoColorProfile()),
 	)
 	if _, err := program.Run(); err != nil {
 		fmt.Fprintf(stderr, "routeburn: %v\n", err)
