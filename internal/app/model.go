@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
+	"charm.land/bubbles/v2/spinner"
 	"github.com/acevedomiguel/routeburn/internal/cache"
 	"github.com/acevedomiguel/routeburn/internal/domain"
 	or "github.com/acevedomiguel/routeburn/internal/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/ui"
-	"github.com/charmbracelet/bubbles/spinner"
 )
 
 // Model is the Bubble Tea model for the whole application.
@@ -42,6 +42,10 @@ type Model struct {
 	notice      string
 	helpVisible bool
 	scroll      int
+	// tableOffset is the daily table's own scroll position, in days from the
+	// newest. It survives losing focus so Tab back lands where you left off.
+	tableOffset  int
+	tableFocused bool
 
 	gen int
 

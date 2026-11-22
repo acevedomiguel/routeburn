@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/acevedomiguel/routeburn/internal/domain"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 )
 
 func TestClassifyLayout(t *testing.T) {
@@ -107,8 +106,6 @@ func TestAgoCachedLabel(t *testing.T) {
 }
 
 func TestNoColorStylesArePlain(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.Ascii)
-	t.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
 
 	s := NewStyles(false)
 	if _, ok := s.Title.GetForeground().(lipgloss.NoColor); !ok {
@@ -120,8 +117,6 @@ func TestNoColorStylesArePlain(t *testing.T) {
 }
 
 func TestColorStylesEmitANSI(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.ANSI)
-	t.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
 
 	s := NewStyles(true)
 	if out := s.Accent.Render("hi"); !strings.Contains(out, "\x1b[") {
@@ -159,5 +154,34 @@ func TestSampleSnapshotMatchesRange(t *testing.T) {
 	}
 	if !snap.Daily[len(snap.Daily)-1].Day.Equal(rng.End.AddDate(0, 0, -1)) {
 		t.Error("last day must be the day before the exclusive end")
+	}
+}
+
+// lipgloss v2 turned Color into a function returning color.Color, so the
+// palette constants and the build helper must follow it.
+func TestStylesCarryV2Colors(t *testing.T) {
+	on := NewStyles(true)
+	if _, ok := on.Title.GetForeground().(lipgloss.NoColor); ok {
+		t.Error("coloured title must carry a foreground colour")
+	}
+	off := NewStyles(false)
+	if _, ok := off.Title.GetForeground().(lipgloss.NoColor); !ok {
+		t.Error("--no-color title must have no foreground colour")
+	}
+	if out := off.Title.Render("hello"); out != "hello" {
+		t.Errorf("--no-color render = %q, want plain", out)
+	}
+}
+
+// v2 replaced the help bubble's exported Width field with a SetWidth/Width
+// method pair, so the constructor must go through the setter.
+func TestHelpBubbleUsesV2Width(t *testing.T) {
+	h := NewHelp(plainStyles(), 42)
+	if got := h.Width(); got != 42 {
+		t.Fatalf("help width = %d, want 42", got)
+	}
+	out := h.View(NewKeyMap())
+	if !strings.Contains(out, "[r]") {
+		t.Errorf("help view = %q", out)
 	}
 }

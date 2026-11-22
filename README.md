@@ -3,33 +3,44 @@
 **A read-only terminal dashboard for OpenRouter credits, spend, and runway.**
 
 ```
-Updated 15:42                                                           
-╭─┬ Credits ┬─────────────────────╮ ╭─┬ Last 30 days ┬─────────────────╮
-│ Remaining ·············· $42.10 │ │ Spend ··················· $11.29 │
-│ Runway ······· 102 days ~Mar 03 │ │ Requests ················· 1,240 │
-│ Daily burn ·········· $0.41/day │ │ Tokens ···················· 8.4M │
-│                                 │ │ Cache hit ················ 18.4% │
-╰─────────────────────────────────╯ ╰──────────────────────────────────╯
-
-╭─┬ Cost by model ┬───────────────╮ ╭─┬ Tokens ┬───────────────────────╮
-│ claude-so... · $7.21 ▇▇▇▇░░ 58% │ │ Input ····················· 7.1M │
-│ gpt-5 ········ $3.82 ▇▇░░░░ 31% │ │ Output ···················· 1.3M │
-│ llama-4-70b ·· $1.31 ▇░░░░░ 11% │ │ Cached ···················· 1.5M │
-│                                 │ │ Reasoning ················· 480K │
-╰─────────────────────────────────╯ ╰──────────────────────────────────╯
-
-╭─┬ Daily credit spend ┬───────────────────────── peak $1.20 · Nov 05 ─╮
-│                               ██                                     │
-│                               ██                                     │
-│                    ██       ████                                     │
-│                    ██       ██████                                   │
-│                 █████       ██████          ██       ██              │
-│        ███      ███████     ██████          ████     ████       ██   │
-│      █████      █████████████████████       ██████   ██████     ████ │
-│      ███████    █████████████████████  █████████████████████████████ │
-│ ▁▁▁███████████▁▁█████████████████████▁▁█████████████████████████████ │
-╰──────────────────────────────────────────────────────────────────────╯
- [r] refresh  [↑↓] scroll  [?] help  [q] quit                           
+╭─┬ Credits ┬────────────────────────── Updated 23:42 ─╮ ╭─┬ Daily spend ┬───────────────────────────────────────╮
+│ Remaining ··································· $42.10 │ │  DATE                                 SPEND   TOKENS  │
+│ Runway ···························· 102 days ~Mar 03 │ │  Nov 21       ▇▇▇▇▇▇░░░░░░░░░░░░░░    $0.33     231K  │
+│ Daily burn ······························· $0.41/day │ │  Nov 20       ▇▇▇▇▇▇▇▇░░░░░░░░░░░░    $0.50     350K  │
+╰──────────────────────────────────────────────────────╯ │  Nov 19       ▇▇▇▇░░░░░░░░░░░░░░░░    $0.25     175K  │
+                                                         │  Nov 18       ▇▇▇░░░░░░░░░░░░░░░░░    $0.15     105K  │
+╭─┬ Last 30 days ┬─────────────────────────────────────╮ │  Nov 17       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.30     210K  │
+│ Spend ······································· $11.29 │ │  Nov 16       ▇▇▇▇▇▇▇▇░░░░░░░░░░░░    $0.45     315K  │
+│ Requests ····································· 1,240 │ │  Nov 15       ▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░    $0.60     420K  │
+│ Tokens ········································ 8.4M │ │  Nov 14       ▇▇▇░░░░░░░░░░░░░░░░░    $0.20     140K  │
+│ Cache hit ···································· 18.4% │ │  Nov 13       ▇▇▇▇▇▇░░░░░░░░░░░░░░    $0.35     245K  │
+╰──────────────────────────────────────────────────────╯ │  Nov 12       ▇▇▇▇▇▇▇░░░░░░░░░░░░░    $0.40     280K  │
+                                                         │  Nov 11       ▇▇▇▇▇▇▇▇▇░░░░░░░░░░░    $0.55     385K  │
+╭─┬ Tokens ┬───────────────────────────────────────────╮ │  Nov 10       ▇▇▇▇░░░░░░░░░░░░░░░░    $0.24     168K  │
+│ Input ·············· 7.1M  Output ············· 1.3M │ │  Nov 09       ▇▇▇░░░░░░░░░░░░░░░░░    $0.18     126K  │
+│ Cached ············· 1.5M  Reasoning ·········· 480K │ │  Nov 08       ░░░░░░░░░░░░░░░░░░░░    $0.00        0  │
+╰──────────────────────────────────────────────────────╯ │  Nov 07       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.31     217K  │
+                                                         │  Nov 06       ▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░    $0.77     539K  │
+╭─┬ Cost by model ┬────────────────────────────────────╮ │  Nov 05       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇    $1.20     840K  │
+│ claude-sonnet-4 ··············· $7.21 ▇▇▇▇▇▇░░░░ 58% │ │  Nov 04       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░    $0.90     630K  │
+│ gpt-5 ························· $3.82 ▇▇▇░░░░░░░ 31% │ │  Nov 03       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.27     189K  │
+│ llama-4-70b ··················· $1.31 ▇░░░░░░░░░ 11% │ │  Nov 02       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.31     217K  │
+╰──────────────────────────────────────────────────────╯ │  Nov 01       ▇▇▇▇▇▇▇░░░░░░░░░░░░░    $0.42     294K  │
+                                                         │  Oct 31       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░    $0.88     616K  │
+                                                         │  Oct 30       ▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░    $0.61     427K  │
+                                                         │  Oct 29       ░░░░░░░░░░░░░░░░░░░░    $0.00        0  │
+                                                         │  Oct 28       ▇░░░░░░░░░░░░░░░░░░░    $0.05      35K  │
+                                                         │  Oct 27       ▇▇▇░░░░░░░░░░░░░░░░░    $0.20     140K  │
+                                                         │  Oct 26       ▇▇▇▇▇▇▇░░░░░░░░░░░░░    $0.44     308K  │
+                                                         │  Oct 25       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.31     217K  │
+                                                         │  Oct 24       ▇▇░░░░░░░░░░░░░░░░░░    $0.12      84K  │
+                                                         │  Oct 23       ░░░░░░░░░░░░░░░░░░░░    $0.00        0  │
+                                                         │                                                       │
+                                                         │                                                       │
+                                                         │ ───────────────────────────────────────────────────── │
+                                                         │  30 days                             $11.29     7.9M  │
+                                                         ╰───────────────────────────────────────────────────────╯
+ [r] refresh  [↑↓] scroll  [tab] table  [?] help  [q] quit                                                          
 ```
 
 Illustrative rendering with placeholder values. The dashboard shows only your
@@ -44,16 +55,22 @@ current burn rate.
 
 ## Features
 
-- Built on [Bubbles](https://github.com/charmbracelet/bubbles): the bottom bar is
-  a `help` bubble fed by a `key` KeyMap, the refresh indicator is a `spinner`,
-  and pagination dots come from `paginator`.
+- Built on [Charm](https://charm.land) v2 (`charm.land/bubbletea/v2`,
+  `charm.land/lipgloss/v2`, `charm.land/bubbles/v2`): the bottom bar is a
+  `help` bubble fed by a `key` KeyMap, the refresh indicator is a `spinner`,
+  pagination dots come from `paginator`, and the daily table's row window is a
+  `table`.
 - Full-screen alternate-screen layout with the menu bar pinned to the last row.
-- Every section is a bordered panel with its title inlaid in the top border, and
-  the panels stretch to fill the frame so no vertical space is left dead.
+- Every section is a bordered panel with its title inlaid in the top border. On
+  wide terminals the small panels stack in a left sidebar and the daily table
+  takes a full-height right column; the freshness status rides in the Credits
+  panel's border.
 - Remaining account credit, as a single figure: the purchased total and a
   proportion bar are deliberately not shown.
-- 30 daily UTC buckets rendered as a block sparkline with the peak day in the
-  panel caption.
+- 30 daily UTC buckets as a scrollable table: date, spend, tokens, requests,
+  and cache hit rate, newest first, with an inline per-day meter heat-coloured
+  green-to-red by share of the peak day. `Tab` focuses it (the title inverts),
+  `↑↓`/`PgUp`/`PgDn` scroll, and a pinned total row sums the whole window.
 - Model spend for the same 30 days, ranked with a short display name, an inline
   proportional meter, and an `Other (remaining)` rollup.
 - Runway estimate from the previous 30 complete UTC days of spend.
@@ -164,7 +181,7 @@ storage automatically.
 | Credits remaining | `total_credits - total_usage`. Negative values are shown, never clamped. |
 | Last 30 days | Sum of daily credit spend and tokens over the current UTC day plus the 29 before it. |
 | Estimated runway | Days until the balance reaches zero at the recent burn rate. |
-| Daily credit spend | One block per UTC day for the 30-day window, with the peak day named. |
+| Daily spend | One row per UTC day for the 30-day window: spend, tokens, requests, and cache hit rate, with an inline heat-coloured meter per day. |
 | Cost by model | Model spend for the window, highest first, top four plus `Other (remaining)`. |
 | Tokens | The prompt/completion/cached/reasoning split, from the same analytics query. |
 

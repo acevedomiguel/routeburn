@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/charmbracelet/bubbles/key"
+	"charm.land/bubbles/v2/key"
 )
 
 // KeyMap holds every binding the dashboard understands. It satisfies the
@@ -16,12 +16,17 @@ type KeyMap struct {
 	Help     key.Binding
 	Close    key.Binding
 	Quit     key.Binding
+	Tab      key.Binding
 }
 
 // NewKeyMap builds the default bindings. Only keys the app actually handles are
 // listed, so the footer can never advertise a feature that does not exist.
 func NewKeyMap() KeyMap {
 	return KeyMap{
+		Tab: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("[tab]", "table"),
+		),
 		Refresh: key.NewBinding(
 			key.WithKeys("r"),
 			key.WithHelp("[r]", "refresh"),
@@ -59,13 +64,13 @@ func NewKeyMap() KeyMap {
 
 // ShortHelp is the one-line footer, in render order.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Refresh, k.Down, k.Help, k.Quit}
+	return []key.Binding{k.Refresh, k.Down, k.Tab, k.Help, k.Quit}
 }
 
 // FullHelp is the grouped overlay. SetUp remains the same as the footer.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Refresh, k.Down, k.Help},
+		{k.Refresh, k.Down, k.Tab, k.Help},
 		{k.Up, k.PageUp, k.PageDown},
 		{k.Close, k.Quit},
 	}

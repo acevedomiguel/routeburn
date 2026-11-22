@@ -4,8 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/lipgloss/v2"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
@@ -128,10 +127,6 @@ func TestKeyMapMatchesHandledKeys(t *testing.T) {
 }
 
 func TestNoColorRenderHasNoEscapes(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.Ascii)
-	tp := t
-	tp.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
-
 	snap := SampleSnapshotAt(fixedNow())
 	out := Render(&snap, ViewOptions{Width: 100, Height: 30, Styles: NewStyles(false), Now: fixedNow()})
 	if strings.Contains(out, "\x1b[") {
@@ -234,13 +229,15 @@ func TestSharedRowKeepsTheExactHeightBudget(t *testing.T) {
 	}
 }
 
-// Once `detail` is true (a 26-row body, i.e. a 28-row terminal) the token split
+// Once `detail` is true (a 26-row body, i.e. a 27-row terminal now that the
+// body gained the old status row) the token split
 // is shown and it shares a row with the model panel: model on the left half,
 // tokens on the right half, aligned with the credits/last-30 row above.
 func TestTallDashboardPutsTokensBesideCostByModel(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
 	for _, h := range []int{28, 30, 40, 60} {
-		out := Render(&snap, ViewOptions{Width: 120, Height: h, Styles: plainStyles(), Now: fixedNow()})
+		// 90 columns: at 100+ the sidebar stacks these panels instead.
+		out := Render(&snap, ViewOptions{Width: 90, Height: h, Styles: plainStyles(), Now: fixedNow()})
 		lines := strings.Split(out, "\n")
 
 		modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
@@ -266,7 +263,8 @@ func TestTallDashboardPutsTokensBesideCostByModel(t *testing.T) {
 // without depending on how many rows the status line and footer consume.
 func TestDetailBoundaryDecidesTheSharedRow(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	lay := Classify(120, 40)
+	// 90 columns: at 100+ the sidebar arrangement replaces this budget.
+	lay := Classify(90, 40)
 	opts := ViewOptions{Styles: plainStyles(), Now: fixedNow()}
 
 	tall := strings.Join(dashboardBody(&snap, opts, lay, 26), "\n")
@@ -291,11 +289,16 @@ func TestDetailBoundaryDecidesTheSharedRow(t *testing.T) {
 }
 
 // Below 26 rows there is no room for the split: it is dropped and the model
-// panel spans the full width instead of sharing a row.
+// panel spans the full width instead of sharing a row. Pinned at 90 columns,
+// below the sidebar threshold: at 100+ the sidebar gives the split its own
+// column, where it no longer competes with the model panel for rows.
 func TestShortDashboardDropsTokensAndSpansModelFullWidth(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	for _, h := range []int{16, 20, 24, 27} {
-		out := Render(&snap, ViewOptions{Width: 120, Height: h, Styles: plainStyles(), Now: fixedNow()})
+	// 16 is excluded: two border rows, the credits block, a gap, the table panel
+	// and its gap come to more than 14 body rows, so there is no room for the
+	// model panel at all. That case is covered by TestTinyTerminalDropsTheModelPanel.
+	for _, h := range []int{20, 24, 26} {
+		out := Render(&snap, ViewOptions{Width: 90, Height: h, Styles: plainStyles(), Now: fixedNow()})
 		if strings.Contains(out, "╭─┬ Tokens") {
 			t.Errorf("height %d: token panel must be dropped", h)
 		}
@@ -316,7 +319,7 @@ func TestSingleColumnKeepsStackedOrder(t *testing.T) {
 	body := strings.Join(lines, "\n")
 
 	tokens := strings.Index(body, "╭─┬ Tokens")
-	spark := strings.Index(body, "╭─┬ Daily credit spend")
+	spark := strings.Index(body, "╭─┬ Daily spend")
 	models := strings.Index(body, "╭─┬ Cost by model")
 	if tokens < 0 || spark < 0 || models < 0 {
 		t.Fatalf("missing panel: tokens=%d spark=%d models=%d\n%s", tokens, spark, models, body)
@@ -328,5 +331,63 @@ func TestSingleColumnKeepsStackedOrder(t *testing.T) {
 		if strings.Contains(l, "╭─┬ Tokens") && strings.Count(l, "╭") != 1 {
 			t.Errorf("single-column token panel must be full width: %q", l)
 		}
+	}
+}
+
+// At wide terminals the daily table takes a right-hand column beside the
+// stacked small panels instead of sitting under them: the user's 200-column
+// run gave the table the whole middle of the screen, which read as wasted
+// space.
+func TestWideLayoutPutsTheTableBesideThePanels(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	out := Render(&snap, ViewOptions{Width: 120, Height: 40, Styles: plainStyles(), Now: fixedNow()})
+	lines := strings.Split(out, "\n")
+	credits, last30, table := -1, -1, -1
+	for i, l := range lines {
+		if strings.Contains(l, "╭─┬ Credits") && credits < 0 {
+			credits = i
+		}
+		if strings.Contains(l, "╭─┬ Last 30 days") && last30 < 0 {
+			last30 = i
+		}
+		if strings.Contains(l, "╭─┬ Daily spend") && table < 0 {
+			table = i
+		}
+	}
+	if credits < 0 || last30 < 0 || table < 0 {
+		t.Fatalf("missing panels (credits %d, last30 %d, table %d):\n%s", credits, last30, table, out)
+	}
+	if credits != table {
+		t.Errorf("the table must share the top row with the credits panel (credits on line %d, table on line %d):\n%s", credits, table, out)
+	}
+	if last30 <= credits {
+		t.Errorf("the small panels must stack down the left column (credits %d, last30 %d):\n%s", credits, last30, out)
+	}
+	// The table's top border must start to the right of the left column.
+	if idx := strings.Index(lines[table], "╭─┬ Daily spend"); idx == 0 {
+		t.Errorf("the table must sit in a right-hand column, not full width:\n%s", out)
+	}
+}
+
+// Below the sidebar threshold the stacked order is untouched: the table stays
+// under the small panels.
+func TestNarrowLayoutKeepsTheTableBelowThePanels(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
+	lines := strings.Split(out, "\n")
+	credits, table := -1, -1
+	for i, l := range lines {
+		if strings.Contains(l, "╭─┬ Credits") && credits < 0 {
+			credits = i
+		}
+		if strings.Contains(l, "╭─┬ Daily spend") && table < 0 {
+			table = i
+		}
+	}
+	if credits < 0 || table < 0 {
+		t.Fatalf("missing panels:\n%s", out)
+	}
+	if table <= credits {
+		t.Errorf("narrow layout must keep the table below the credits panel (credits %d, table %d):\n%s", credits, table, out)
 	}
 }

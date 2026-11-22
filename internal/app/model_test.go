@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/acevedomiguel/routeburn/internal/cache"
 	"github.com/acevedomiguel/routeburn/internal/domain"
 	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
 func testModel(t *testing.T, opts testModelOptions) *Model {
@@ -81,7 +82,7 @@ func TestNewWithoutCredentialsStartsSetup(t *testing.T) {
 	if m.State() != StateSetup {
 		t.Fatalf("state = %v, want setup", m.State())
 	}
-	if view := m.View(); !strings.Contains(view, "RouteBurn setup") {
+	if view := m.View().Content; !strings.Contains(view, "RouteBurn setup") {
 		t.Fatalf("setup view missing: %q", view)
 	}
 }
@@ -143,7 +144,7 @@ func TestCacheIsRenderedImmediately(t *testing.T) {
 	if !m.Cached() {
 		t.Fatal("model should mark cache-sourced data as cached")
 	}
-	if view := m.View(); !strings.Contains(view, "Cached data - updated 2h 14m ago") {
+	if view := m.View().Content; !strings.Contains(view, "Cached data - updated 2h 14m ago") {
 		t.Fatalf("view missing cache label: %q", view)
 	}
 }
@@ -231,7 +232,7 @@ func TestFailedRefreshWithNoDataIsFatal(t *testing.T) {
 	if m.State() != StateFatalError {
 		t.Fatalf("state = %v, want fatal", m.State())
 	}
-	if view := m.View(); !strings.Contains(view, "cannot start") {
+	if view := m.View().Content; !strings.Contains(view, "cannot start") {
 		t.Fatalf("fatal view = %q", view)
 	}
 }
@@ -343,8 +344,8 @@ func TestRefreshKeysAndQuit(t *testing.T) {
 			if !m.helpVisible {
 				t.Fatal("? must show help")
 			}
-			if !strings.Contains(m.View(), "RouteBurn help") {
-				t.Fatalf("help view = %q", m.View())
+			if !strings.Contains(m.View().Content, "RouteBurn help") {
+				t.Fatalf("help view = %q", m.View().Content)
 			}
 		}},
 	}
@@ -377,28 +378,21 @@ func TestEscClosesHelpBeforeQuitting(t *testing.T) {
 }
 
 func keyCmd(m *Model, key string) tea.Cmd {
-	var msg tea.KeyMsg
+	var msg tea.KeyPressMsg
 	switch key {
-	case "q":
-		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
-	case "r":
-		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
-	case "?":
-		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
 	case "esc":
-		msg = tea.KeyMsg{Type: tea.KeyEsc}
+		msg = tea.KeyPressMsg{Code: tea.KeyEscape}
 	case "ctrl+c":
-		msg = tea.KeyMsg{Type: tea.KeyCtrlC}
-	case "j":
-		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
-	case "k":
-		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+		msg = tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	case "down":
-		msg = tea.KeyMsg{Type: tea.KeyDown}
+		msg = tea.KeyPressMsg{Code: tea.KeyDown}
 	case "up":
-		msg = tea.KeyMsg{Type: tea.KeyUp}
+		msg = tea.KeyPressMsg{Code: tea.KeyUp}
+	case "tab":
+		msg = tea.KeyPressMsg{Code: tea.KeyTab}
 	default:
-		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+		r := []rune(key)[0]
+		msg = tea.KeyPressMsg{Code: r, Text: key}
 	}
 	_, cmd := m.Update(msg)
 	return cmd
@@ -407,7 +401,7 @@ func keyCmd(m *Model, key string) tea.Cmd {
 func TestEscClosesHelp(t *testing.T) {
 	m := testModel(t, testModelOptions{})
 	m.helpVisible = true
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	m = updated.(*Model)
 	if m.helpVisible {
 		t.Fatal("Esc must close help")
@@ -416,17 +410,17 @@ func TestEscClosesHelp(t *testing.T) {
 
 func TestScrollKeys(t *testing.T) {
 	m := testModel(t, testModelOptions{})
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	m = updated.(*Model)
 	if m.scroll != 1 {
 		t.Fatalf("scroll = %d", m.scroll)
 	}
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	m = updated.(*Model)
 	if m.scroll != 0 {
 		t.Fatalf("scroll = %d", m.scroll)
 	}
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	m = updated.(*Model)
 	if m.scroll != 0 {
 		t.Fatal("scroll must not go negative")
@@ -455,9 +449,9 @@ func TestViewIsPureAndStable(t *testing.T) {
 	})
 	m = updated.(*Model)
 
-	first := m.View()
+	first := m.View().Content
 	for i := 0; i < 3; i++ {
-		if m.View() != first {
+		if m.View().Content != first {
 			t.Fatal("View must not mutate state")
 		}
 	}
@@ -479,5 +473,100 @@ func TestFetchErrorSentinelMissingManagementKeyTriggersSetup(t *testing.T) {
 	if m.State() != StateFatalError {
 		// Missing credentials mid-flight is fatal for the session unless setup runs.
 		t.Fatalf("state = %v", m.State())
+	}
+}
+
+// Tab hands the scroll keys to the daily table and back without disturbing the
+// body's own scroll position.
+func TestTabTogglesTableFocus(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	if m.tableFocused {
+		t.Fatal("table must start unfocused")
+	}
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(*Model)
+	if !m.tableFocused {
+		t.Fatal("Tab must focus the table")
+	}
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(*Model)
+	if m.tableFocused {
+		t.Fatal("a second Tab must return focus to the body")
+	}
+}
+
+// While the table has focus, j and k move the table offset and leave the body
+// scroll alone; the reverse holds when focus is on the body.
+func TestTableFocusRoutesScrollKeys(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	snap := ui.SampleSnapshotAt(fixedNow())
+	m.snapshot = &snap
+	m.helpVisible = false
+	m.tableFocused = true
+
+	window := ui.TableWindow(m.snapshot, m.viewOptions())
+	if window < 1 {
+		t.Fatalf("table window = %d, want at least 1", window)
+	}
+
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	m = updated.(*Model)
+	if m.tableOffset != 1 {
+		t.Fatalf("focused j: tableOffset = %d, want 1", m.tableOffset)
+	}
+	if m.scroll != 0 {
+		t.Fatalf("focused j must not move the body: scroll = %d", m.scroll)
+	}
+
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
+	m = updated.(*Model)
+	if m.tableOffset != 0 {
+		t.Fatalf("focused k: tableOffset = %d, want 0", m.tableOffset)
+	}
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
+	m = updated.(*Model)
+	if m.tableOffset != 0 {
+		t.Fatal("table offset must not go negative")
+	}
+
+	// Past the end of the series the offset clamps instead of scrolling into
+	// blank rows.
+	for i := 0; i < 100; i++ {
+		updated, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
+		m = updated.(*Model)
+	}
+	want := len(m.snapshot.Daily) - window
+	if m.tableOffset != want {
+		t.Fatalf("tableOffset = %d, want clamp at %d", m.tableOffset, want)
+	}
+
+	// Unfocused, the same keys move the body instead.
+	m.tableFocused = false
+	m.tableOffset = 0
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	m = updated.(*Model)
+	if m.scroll != 1 || m.tableOffset != 0 {
+		t.Fatalf("unfocused j: scroll = %d tableOffset = %d", m.scroll, m.tableOffset)
+	}
+}
+
+// The footer advertises the table key, so a user can discover it without help.
+func TestFooterAdvertisesTheTableKey(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	if view := m.View().Content; !strings.Contains(view, "table") {
+		t.Errorf("footer must mention the table key:\n%s", view)
+	}
+}
+
+// bubbletea v2 returns a tea.View from View(), and keys arrive as
+// tea.KeyPressMsg. The alt screen is a field on the view, not an option.
+func TestViewModelIsAV2View(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	v := m.View()
+	if !v.AltScreen {
+		t.Error("the dashboard must request the alternate screen")
+	}
+	if v.Content == "" {
+		t.Error("the view carries no content")
 	}
 }
