@@ -212,3 +212,121 @@ func TestModelsCardShowsShortNames(t *testing.T) {
 		}
 	}
 }
+
+// --- issue #12: model panel and token split share a row ----------------------
+
+// The shared row must not cost the dashboard its exact height contract: the
+// body still fills the frame at every legal size, so the footer lands on the
+// last row and no pagination dots appear.
+func TestSharedRowKeepsTheExactHeightBudget(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	for _, h := range []int{16, 20, 24, 26, 30, 40, 60} {
+		for _, w := range []int{60, 80, 100, 140} {
+			out := Render(&snap, ViewOptions{Width: w, Height: h, Styles: plainStyles(), Now: fixedNow()})
+			if got := len(strings.Split(out, "\n")); got != h {
+				t.Errorf("%dx%d rendered %d lines, want %d", w, h, got, h)
+			}
+			last := strings.Split(out, "\n")[h-1]
+			if strings.Contains(last, "●") || strings.Contains(last, "○") {
+				t.Errorf("%dx%d: body overflowed into pagination: %q", w, h, last)
+			}
+		}
+	}
+}
+
+// Once `detail` is true (a 26-row body, i.e. a 28-row terminal) the token split
+// is shown and it shares a row with the model panel: model on the left half,
+// tokens on the right half, aligned with the credits/last-30 row above.
+func TestTallDashboardPutsTokensBesideCostByModel(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	for _, h := range []int{28, 30, 40, 60} {
+		out := Render(&snap, ViewOptions{Width: 120, Height: h, Styles: plainStyles(), Now: fixedNow()})
+		lines := strings.Split(out, "\n")
+
+		modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
+		tokensRow, tokensCol := panelCol(t, lines, "╭─┬ Tokens")
+		_, creditsCol := panelCol(t, lines, "╭─┬ Credits")
+		_, last30Col := panelCol(t, lines, "╭─┬ Last 30 days")
+
+		if modelsRow != tokensRow {
+			t.Errorf("height %d: model row=%d token row=%d, want the same row", h, modelsRow, tokensRow)
+		}
+		if modelsCol != creditsCol {
+			t.Errorf("height %d: model col=%d, want the left column %d", h, modelsCol, creditsCol)
+		}
+		if tokensCol != last30Col {
+			t.Errorf("height %d: token col=%d, want the right column %d", h, tokensCol, last30Col)
+		}
+	}
+}
+
+// The switch is exactly the `detail` boundary: a 26-row body shows the split
+// beside the model panel, a 25-row body drops it and gives the model panel the
+// whole width. dashboardBody is called directly so the boundary is pinned
+// without depending on how many rows the status line and footer consume.
+func TestDetailBoundaryDecidesTheSharedRow(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	lay := Classify(120, 40)
+	opts := ViewOptions{Styles: plainStyles(), Now: fixedNow()}
+
+	tall := strings.Join(dashboardBody(&snap, opts, lay, 26), "\n")
+	if !strings.Contains(tall, "╭─┬ Tokens") {
+		t.Fatalf("a 26-row body must show the token split:\n%s", tall)
+	}
+	tallLines := strings.Split(tall, "\n")
+	modelRow, modelCol := panelCol(t, tallLines, "╭─┬ Cost by model")
+	tokenRow, tokenCol := panelCol(t, tallLines, "╭─┬ Tokens")
+	if modelRow != tokenRow || modelCol >= tokenCol {
+		t.Errorf("26-row body: model row/col=%d/%d token row/col=%d/%d, want side by side",
+			modelRow, modelCol, tokenRow, tokenCol)
+	}
+
+	short := strings.Join(dashboardBody(&snap, opts, lay, 25), "\n")
+	if strings.Contains(short, "╭─┬ Tokens") {
+		t.Errorf("a 25-row body must drop the token split:\n%s", short)
+	}
+	if _, col := panelCol(t, strings.Split(short, "\n"), "╭─┬ Cost by model"); col != 0 {
+		t.Errorf("25-row body: model col=%d, want full width at 0", col)
+	}
+}
+
+// Below 26 rows there is no room for the split: it is dropped and the model
+// panel spans the full width instead of sharing a row.
+func TestShortDashboardDropsTokensAndSpansModelFullWidth(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	for _, h := range []int{16, 20, 24, 27} {
+		out := Render(&snap, ViewOptions{Width: 120, Height: h, Styles: plainStyles(), Now: fixedNow()})
+		if strings.Contains(out, "╭─┬ Tokens") {
+			t.Errorf("height %d: token panel must be dropped", h)
+		}
+		lines := strings.Split(out, "\n")
+		if _, col := panelCol(t, lines, "╭─┬ Cost by model"); col != 0 {
+			t.Errorf("height %d: model panel col=%d, want full width at 0", h, col)
+		}
+	}
+}
+
+// The single-column arrangement keeps the original stacked order: the token
+// split, then the sparkline, then the model breakdown.
+func TestSingleColumnKeepsStackedOrder(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	lay := Classify(120, 40)
+	lay.TwoColumn = false
+	lines := dashboardBody(&snap, ViewOptions{Styles: plainStyles(), Now: fixedNow()}, lay, 40)
+	body := strings.Join(lines, "\n")
+
+	tokens := strings.Index(body, "╭─┬ Tokens")
+	spark := strings.Index(body, "╭─┬ Daily credit spend")
+	models := strings.Index(body, "╭─┬ Cost by model")
+	if tokens < 0 || spark < 0 || models < 0 {
+		t.Fatalf("missing panel: tokens=%d spark=%d models=%d\n%s", tokens, spark, models, body)
+	}
+	if !(tokens < spark && spark < models) {
+		t.Errorf("stacked order broken: tokens=%d spark=%d models=%d", tokens, spark, models)
+	}
+	for _, l := range lines {
+		if strings.Contains(l, "╭─┬ Tokens") && strings.Count(l, "╭") != 1 {
+			t.Errorf("single-column token panel must be full width: %q", l)
+		}
+	}
+}
