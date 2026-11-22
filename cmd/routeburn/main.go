@@ -75,6 +75,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "help":
 		printUsage(stdout)
 		return exitOK
+	case "demo":
+		// The demo never touches configuration, credentials, or the network.
+		return runDemo(stdin, stdout, stderr)
 	}
 
 	paths, err := config.DefaultPaths()
@@ -176,6 +179,8 @@ func parse(args []string, stderr io.Writer) (options, error) {
 		opts.command = "dashboard"
 	case rest[0] == "setup" && len(rest) == 1:
 		opts.command = "setup"
+	case rest[0] == "demo" && len(rest) == 1:
+		opts.command = "demo"
 	case rest[0] == "logout" && len(rest) == 1:
 		opts.command = "logout"
 	case rest[0] == "help":
