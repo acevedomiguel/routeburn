@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/acevedomiguel/routeburn/compare/v1.1.1...v1.2.0) (2026-11-22)
+
+### Features
+
+* add static project website with GitHub Pages deployment ([#16](https://github.com/acevedomiguel/routeburn/issues/16)) ([428d541](https://github.com/acevedomiguel/routeburn/commit/428d54180ba8907df10c112efb267b9e413a2885))
+
 ## [1.1.1](https://github.com/acevedomiguel/routeburn/compare/v1.1.0...v1.1.1) (2026-11-22)
 
 ### Bug Fixes
