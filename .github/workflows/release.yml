@@ -109,8 +109,16 @@ jobs:
       - name: Install and test published cask
         run: |
           brew tap acevedomiguel/routeburn
+          # The tap is third-party, so Homebrew refuses to load the cask until it
+          # is trusted explicitly.
+          brew trust --tap acevedomiguel/routeburn
           brew install --cask routeburn
           routeburn --version | grep -F "routeburn version ${EXPECTED_VERSION}"
+          # The cask must not fall back to the deprecated `postflight` stanza.
+          if grep -qE '^\s*postflight do' "$(brew --repository acevedomiguel/routeburn)/Casks/routeburn.rb"; then
+            echo "cask still uses the deprecated postflight stanza" >&2
+            exit 1
+          fi
 
   verify-archives:
     needs: release
