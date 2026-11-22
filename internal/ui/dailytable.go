@@ -2,9 +2,11 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/bubbles/v2/table"
+	"charm.land/lipgloss/v2"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
@@ -12,6 +14,10 @@ import (
 // minTableHeight is the smallest daily table panel worth drawing: two borders,
 // a column header, one day, a separator, and the pinned total row.
 const minTableHeight = 6
+
+// minBarWidth is the smallest useful inline bar. Below it the surplus width
+// falls back to padding the date column, the pre-bar behaviour.
+const minBarWidth = 6
 
 // DailyTableOptions configures the daily spend table.
 type DailyTableOptions struct {
@@ -23,11 +29,13 @@ type DailyTableOptions struct {
 }
 
 // dailyColumn is one column of the daily table. Width is the content width;
-// the table style adds one padding column on each side.
+// the table style adds one padding column on each side. The bar column carries
+// the inline per-day meter instead of a header and numbers.
 type dailyColumn struct {
 	title string
 	width int
 	right bool
+	bar   bool
 }
 
 // DailyTable renders the daily credit spend as a bordered table panel, newest
@@ -47,13 +55,30 @@ func DailyTable(daily []domain.DailyUsage, opts DailyTableOptions) []string {
 	}
 
 	cols := dailyColumns(daily, width)
+	peak := peakSpend(daily)
+	dataCols, barWidth := 0, 0
+	for _, c := range cols {
+		if c.bar {
+			barWidth = c.width
+			continue
+		}
+		dataCols++
+	}
 
 	// Newest day first: the series runs oldest to newest, the table reads the
 	// other way, the same direction as the sparkline it replaces. Cells are cut
 	// to the visible columns so a dropped column cannot overrun the row.
 	rows := make([][]string, 0, len(daily))
 	for i := len(daily) - 1; i >= 0; i-- {
-		rows = append(rows, dayCells(daily[i])[:len(cols)])
+		d := daily[i]
+		cells := dayCells(d)[:dataCols]
+		if peak > 0 && d.CreditSpend > 0 {
+			cells[1] = heatStyle(st, d.CreditSpend/peak).Render(cells[1])
+		}
+		if barWidth > 0 {
+			cells = append(cells[:1], append([]string{heatBar(d.CreditSpend, peak, barWidth, st)}, cells[1:]...)...)
+		}
+		rows = append(rows, cells)
 	}
 
 	dataRows := tableDayRows(height)
@@ -84,7 +109,7 @@ func DailyTable(daily []domain.DailyUsage, opts DailyTableOptions) []string {
 	if len(rows) > dataRows {
 		caption = fmt.Sprintf("%d-%d/%d", offset+1, offset+dataRows, len(rows))
 	}
-	return panelWithCaption("Daily spend", caption, body, width, height, st)
+	return focusedCaptionPanel("Daily spend", caption, body, width, height, st, opts.Focused)
 }
 
 // dayCells renders one day's values in column order.
@@ -161,11 +186,16 @@ func dailyColumns(daily []domain.DailyUsage, panelWidth int) []dailyColumn {
 	// numbers are right-aligned inside their cells, so widening every column
 	// pushes each figure to its own right edge and the table reads as a single
 	// block instead of a cluster on the left with a margin to the right.
-	// All surplus goes to DATE. The bubble left-aligns every cell, so a wide
-	// numeric column would strand its figure mid-row; a wide date column pushes
-	// the numbers together against the right edge, which is how the rest of the
-	// dashboard (leader rows with dot leaders) already reads.
-	cols[0].width += (panelWidth - 4) - colBudget(cols)
+	// Surplus wide enough for a useful meter becomes the BAR column between
+	// the date and the numbers — the trend view the sparkline used to give,
+	// now honest one row per day. Anything smaller pads DATE, which pushes the
+	// numbers together against the right edge.
+	if surplus := (panelWidth - 4) - colBudget(cols); surplus >= minBarWidth+2 {
+		bar := []dailyColumn{cols[0], {title: "", width: surplus - 2, bar: true}}
+		cols = append(bar, cols[1:]...)
+	} else {
+		cols[0].width += surplus
+	}
 	return cols
 }
 
@@ -264,8 +294,21 @@ func totalRow(daily []domain.DailyUsage, cols []dailyColumn, st Styles) string {
 		domain.FormatCount(reqs),
 		formatCacheRate(cached, prompt),
 	}
-	if len(cols) < len(cells) {
+	dataCols, hasBar := 0, false
+	for _, c := range cols {
+		if c.bar {
+			hasBar = true
+			continue
+		}
+		dataCols++
+	}
+	if len(cols) > dataCols {
+		cells = cells[:dataCols]
+	} else {
 		cells = cells[:len(cols)]
+	}
+	if hasBar {
+		cells = append(cells[:1], append([]string{""}, cells[1:]...)...)
 	}
 	parts := make([]string, 0, len(cols))
 	for i, c := range cols {
@@ -294,4 +337,76 @@ func padCell(s string, width int, right bool) string {
 // borders, the column header, the separator, and the total row take the rest.
 func tableDayRows(height int) int {
 	return maxInt(height-5, 1)
+}
+
+// peakSpend is the largest single-day spend in the series: the scale every
+// bar and heat colour is measured against.
+func peakSpend(daily []domain.DailyUsage) float64 {
+	peak := 0.0
+	for _, d := range daily {
+		if d.CreditSpend > peak {
+			peak = d.CreditSpend
+		}
+	}
+	return peak
+}
+
+// heatColor maps a day's share of the peak spend onto a green-yellow-red
+// ramp: cheap days read green, the most expensive day in the window reads
+// red. The endpoints match the palette's semantic colours.
+func heatColor(t float64) color.Color {
+	if t < 0 {
+		t = 0
+	}
+	if t > 1 {
+		t = 1
+	}
+	type rgb struct{ r, g, b uint8 }
+	green, yellow, red := rgb{63, 185, 80}, rgb{210, 153, 34}, rgb{248, 81, 73}
+	a, b := green, red
+	u := t
+	if t < 0.5 {
+		b = yellow
+		u = t * 2
+	} else {
+		a = yellow
+		u = (t - 0.5) * 2
+	}
+	mix := func(x, y uint8) uint8 {
+		return uint8(float64(x) + (float64(y)-float64(x))*u + 0.5)
+	}
+	return color.RGBA{R: mix(a.r, b.r), G: mix(a.g, b.g), B: mix(a.b, b.b), A: 255}
+}
+
+// heatStyle colours a value by its share of the peak. With colour disabled it
+// is the empty style, so --no-color output stays free of escapes.
+func heatStyle(st Styles, t float64) lipgloss.Style {
+	if !st.Enabled {
+		return lipgloss.NewStyle()
+	}
+	return lipgloss.NewStyle().Foreground(heatColor(t))
+}
+
+// heatBar renders one day's inline meter: filled blocks in the day's heat
+// colour for its share of the peak, a dim track for the rest, so an empty day
+// reads as an empty bar rather than a missing row.
+func heatBar(spend, peak float64, width int, st Styles) string {
+	if width < 1 {
+		return ""
+	}
+	fill := 0
+	if peak > 0 && spend > 0 {
+		fill = int(spend/peak*float64(width) + 0.5)
+		if fill < 1 {
+			fill = 1
+		}
+		if fill > width {
+			fill = width
+		}
+	}
+	bars := strings.Repeat("▇", fill)
+	if fill > 0 {
+		bars = heatStyle(st, spend/peak).Render(bars)
+	}
+	return bars + st.Muted.Render(strings.Repeat("░", width-fill))
 }

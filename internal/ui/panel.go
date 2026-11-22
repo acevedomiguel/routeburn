@@ -36,6 +36,14 @@ func panel(title string, rows []string, width, height int, st Styles) []string {
 // panelWithCaption draws a panel whose title sits in the top border and whose
 // caption sits flush right in the same border, like btop's panel headers.
 func panelWithCaption(title, caption string, rows []string, width, height int, st Styles) []string {
+	return focusedCaptionPanel(title, caption, rows, width, height, st, false)
+}
+
+// focusedCaptionPanel is panelWithCaption with a focus mark: when the panel is
+// the Tab target its title is inverted, so the reader can see which pane the
+// scroll keys drive. The mark needs colour, so --no-color renders identically
+// either way.
+func focusedCaptionPanel(title, caption string, rows []string, width, height int, st Styles, focused bool) []string {
 	if width < 4 {
 		width = 4
 	}
@@ -52,9 +60,13 @@ func panelWithCaption(title, caption string, rows []string, width, height int, s
 	// The title sits in a notch: the border runs flat, dips down at each end of
 	// the word with a tick, and resumes. Every glyph on the border uses the same
 	// accent colour, corners included, so a panel never shows two border colours.
+	titleStyle := st.CardHead
+	if focused && st.Enabled {
+		titleStyle = titleStyle.Reverse(true)
+	}
 	open := st.Accent.Render(boxHorizontal + boxTick + " ")
 	close := st.Accent.Render(" " + boxTick)
-	head := open + st.CardHead.Render(title) + close
+	head := open + titleStyle.Render(title) + close
 	tail := ""
 	if caption != "" {
 		if room := inner - lipgloss.Width(head) - 5; room > 0 {

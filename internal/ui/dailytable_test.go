@@ -126,8 +126,8 @@ func TestDailyTableColumnsFillTheRowWidth(t *testing.T) {
 			t.Errorf("width %d: columns + padding = %d, want %d", w, sum, w-4)
 		}
 	}
-	if got := len(dailyColumns(daily, 62)); got != 5 {
-		t.Errorf("wide table has %d columns, want 5", got)
+	if got := len(dailyColumns(daily, 62)); got != 6 {
+		t.Errorf("wide table has %d columns, want 6 with the bar column", got)
 	}
 }
 
@@ -181,5 +181,121 @@ func TestDailyTableEmptySeries(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(rows, "\n"), "No daily data available.") {
 		t.Errorf("empty series must explain itself:\n%s", strings.Join(rows, "\n"))
+	}
+}
+
+// The BAR column absorbs the surplus width that used to pad DATE: at width 62
+// the fixed columns leave 11 spare cells, enough for a bar.
+func TestDailyTableBarColumnAbsorbsTheSurplus(t *testing.T) {
+	cols := dailyColumns(tableDaily(30), 62)
+	if len(cols) != 6 {
+		t.Fatalf("width 62 has %d columns, want 6 (DATE BAR SPEND TOKENS REQS CACHE)", len(cols))
+	}
+	if cols[0].title != "DATE" || cols[1].title != "" {
+		t.Fatalf("first two columns = %q, %q; want DATE then the bar", cols[0].title, cols[1].title)
+	}
+	if cols[0].width != 11 {
+		t.Errorf("DATE width = %d, want its fixed 11 now that BAR takes the surplus", cols[0].width)
+	}
+	sum := 0
+	for _, c := range cols {
+		sum += c.width + 2
+	}
+	if sum != 62-4 {
+		t.Errorf("columns + padding = %d, want %d", sum, 62-4)
+	}
+}
+
+// Bars scale to the peak day: the biggest spender fills the column, a
+// half-spend day fills about half.
+func TestDailyTableBarsScaleToThePeak(t *testing.T) {
+	daily := []domain.DailyUsage{
+		{Day: time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC), CreditSpend: 1.00, Tokens: 100},
+		{Day: time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC), CreditSpend: 2.00, Tokens: 200},
+	}
+	rows := DailyTable(daily, DailyTableOptions{Width: 62, Height: 8, Styles: plainStyles()})
+	var peakRow, halfRow string
+	for _, r := range rows {
+		switch {
+		case strings.Contains(r, "Nov 21"):
+			peakRow = r
+		case strings.Contains(r, "Nov 20"):
+			halfRow = r
+		}
+	}
+	if peakRow == "" || halfRow == "" {
+		t.Fatalf("missing day rows:\n%s", strings.Join(rows, "\n"))
+	}
+	peak := strings.Count(peakRow, "▇")
+	half := strings.Count(halfRow, "▇")
+	if peak < 2 {
+		t.Fatalf("the peak day has no bar: %q", peakRow)
+	}
+	if half != (peak+1)/2 && half != peak/2 {
+		t.Errorf("half-spend bar = %d cells, want about half of the peak's %d", half, peak)
+	}
+}
+
+// Expensive days are hot-coloured, cheap days green: the heat of a day is its
+// share of the peak spend, mapped onto a green-to-red ramp.
+func TestDailyTableHeatRampEndpoints(t *testing.T) {
+	r0, g0, b0, _ := heatColor(0).RGBA()
+	r1, g1, b1, _ := heatColor(1).RGBA()
+	if g0 <= r0 || g0 <= b0 {
+		t.Errorf("heat(0) must be green-dominant, got #%02x%02x%02x", r0>>8, g0>>8, b0>>8)
+	}
+	if r1 <= g1 || r1 <= b1 {
+		t.Errorf("heat(1) must be red-dominant, got #%02x%02x%02x", r1>>8, g1>>8, b1>>8)
+	}
+}
+
+// With colour on, the peak day's spend and bar carry escape sequences; a
+// zero-spend day stays muted.
+func TestDailyTableColoursExpensiveDays(t *testing.T) {
+	daily := []domain.DailyUsage{
+		{Day: time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC), CreditSpend: 0, Tokens: 0},
+		{Day: time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC), CreditSpend: 2.00, Tokens: 200},
+	}
+	rows := DailyTable(daily, DailyTableOptions{Width: 62, Height: 8, Styles: NewStyles(true)})
+	var peakRow, zeroRow string
+	for _, r := range rows {
+		switch {
+		case strings.Contains(r, "Nov 21"):
+			peakRow = r
+		case strings.Contains(r, "Nov 20"):
+			zeroRow = r
+		}
+	}
+	if !strings.Contains(peakRow, "\x1b[") {
+		t.Errorf("the peak day must be heat-coloured: %q", peakRow)
+	}
+	if strings.Contains(zeroRow, "\x1b[38") && strings.Contains(zeroRow, "▇") {
+		t.Errorf("a zero day must not draw a coloured bar: %q", zeroRow)
+	}
+}
+
+// Under --no-color the whole panel is plain text, bars included.
+func TestDailyTableNoColorHasNoEscapes(t *testing.T) {
+	rows := DailyTable(tableDaily(30), DailyTableOptions{Width: 80, Height: 12, Styles: plainStyles()})
+	if out := strings.Join(rows, "\n"); strings.Contains(out, "\x1b[") {
+		t.Fatalf("no-color table contains escapes: %q", out)
+	}
+}
+
+// A focused table marks its title so the Tab target is visible; unfocused
+// renders stay unchanged.
+func TestFocusedTableMarksItsTitle(t *testing.T) {
+	daily := tableDaily(5)
+	on := DailyTable(daily, DailyTableOptions{Width: 60, Height: 9, Styles: NewStyles(true), Focused: true})
+	off := DailyTable(daily, DailyTableOptions{Width: 60, Height: 9, Styles: NewStyles(true)})
+	if strings.Join(on, "\n") == strings.Join(off, "\n") {
+		t.Fatal("a focused table must look different from an unfocused one")
+	}
+	if !strings.Contains(on[0], "\x1b[") {
+		t.Errorf("focused title must be highlighted: %q", on[0])
+	}
+	plain := DailyTable(daily, DailyTableOptions{Width: 60, Height: 9, Styles: plainStyles(), Focused: true})
+	if out := strings.Join(plain, "\n"); strings.Contains(out, "\x1b[") {
+		t.Errorf("focused --no-color table must not emit escapes: %q", out)
 	}
 }
