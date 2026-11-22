@@ -146,17 +146,22 @@ func TestPathsUseUserDirs(t *testing.T) {
 }
 
 func TestPathsHonorXDGEnvironment(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg-config")
-	t.Setenv("XDG_CACHE_HOME", "/tmp/xdg-cache")
+	// Absolute paths from the temp dir keep the assertion portable: on Windows
+	// the leading slash is rewritten to a drive-relative path, so a literal
+	// "/tmp/..." would never match.
+	configHome := filepath.Join(t.TempDir(), "xdg-config")
+	cacheHome := filepath.Join(t.TempDir(), "xdg-cache")
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("XDG_CACHE_HOME", cacheHome)
 
 	p, err := DefaultPaths()
 	if err != nil {
 		t.Fatalf("DefaultPaths: %v", err)
 	}
-	if !strings.HasPrefix(p.ConfigFile, "/tmp/xdg-config") {
+	if !strings.HasPrefix(p.ConfigFile, configHome) {
 		t.Errorf("config file = %q, want the XDG override", p.ConfigFile)
 	}
-	if !strings.HasPrefix(p.CacheFile, "/tmp/xdg-cache") {
+	if !strings.HasPrefix(p.CacheFile, cacheHome) {
 		t.Errorf("cache file = %q, want the XDG override", p.CacheFile)
 	}
 }
@@ -180,8 +185,12 @@ func TestWriteSampleIsLoadable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if perm := info.Mode().Perm(); perm&0o077 != 0 {
-		t.Errorf("permissions = %o, want no group/world access", perm)
+	// Windows has no POSIX permission bits; the 0600 request is honoured but
+	// cannot be observed, so the assertion only applies where it means something.
+	if PermissionsAreEnforced {
+		if perm := info.Mode().Perm(); perm&0o077 != 0 {
+			t.Errorf("permissions = %o, want no group/world access", perm)
+		}
 	}
 }
 

@@ -50,19 +50,21 @@ changelog:
 release:
   prerelease: auto
 
-brews:
+# Homebrew formulas are deprecated in GoReleaser v2.10+; casks are the supported
+# path. The tap push is skipped when HOMEBREW_TAP_TOKEN is empty, so a plain
+# release works with only the default GITHUB_TOKEN.
+homebrew_casks:
   - name: routeburn
     ids:
       - routeburn
-    directory: Formula
+    binaries:
+      - routeburn
+    directory: Casks
     homepage: https://github.com/acevedomiguel/routeburn
     description: Read-only Go TUI for monitoring OpenRouter credits, usage, and runway
-    license: MIT
     repository:
       owner: acevedomiguel
       name: homebrew-routeburn
       branch: main
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     commit_msg_template: "chore: update routeburn to {{ .Tag }}"
-    test: |
-      assert_match version.to_s, shell_output("#{bin}/routeburn --version")
+    skip_upload: "{{ if not .Env.HOMEBREW_TAP_TOKEN }}true{{ end }}"

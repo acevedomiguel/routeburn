@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -98,7 +99,9 @@ func TestConfigPathPrintsPath(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d (stderr %q)", code, stderr)
 	}
-	if !strings.HasSuffix(strings.TrimSpace(stdout), "routeburn/config.yaml") {
+	// filepath.Join keeps the separator right on Windows, where the printed
+	// path uses a backslash.
+	if !strings.HasSuffix(strings.TrimSpace(stdout), filepath.Join("routeburn", "config.yaml")) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }

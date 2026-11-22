@@ -164,8 +164,13 @@ func readSecretFile(path string) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("credentials: %s is a directory", path)
 	}
-	if perm := info.Mode().Perm(); perm&0o077 != 0 {
-		return "", ErrInsecurePermissions
+	// Windows reports 0666 for every file, so the group/world check would reject
+	// the fallback unconditionally. There the file's protection comes from the
+	// directory ACL that writeSecretFile sets to 0700.
+	if PermissionsAreEnforced {
+		if perm := info.Mode().Perm(); perm&0o077 != 0 {
+			return "", ErrInsecurePermissions
+		}
 	}
 
 	data, err := os.ReadFile(path)

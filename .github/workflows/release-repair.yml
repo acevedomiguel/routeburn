@@ -13,7 +13,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: routeburn-release-repair
@@ -67,27 +67,17 @@ jobs:
           install-only: true
 
       - name: Validate release configuration
+        env:
+          HOMEBREW_TAP_TOKEN: ""
         run: |
           goreleaser check
           goreleaser release --snapshot --clean
           git diff --exit-code
 
-      - name: Create short-lived release token
-        id: release-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: |
-            routeburn
-            homebrew-routeburn
-          permission-contents: write
-
       - name: Republish GoReleaser artifacts for the existing tag
         env:
-          GITHUB_TOKEN: ${{ steps.release-token.outputs.token }}
-          HOMEBREW_TAP_TOKEN: ${{ steps.release-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: goreleaser release --clean --skip=validate
 
       - name: Job summary

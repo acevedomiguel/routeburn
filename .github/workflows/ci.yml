@@ -84,6 +84,10 @@ jobs:
 
       - name: Build snapshot
         uses: goreleaser/goreleaser-action@v6
+        env:
+          # Defined-but-empty so the tap template resolves; the tap upload is
+          # skipped when no tap token is configured.
+          HOMEBREW_TAP_TOKEN: ""
         with:
           distribution: goreleaser
           version: "~> v2"

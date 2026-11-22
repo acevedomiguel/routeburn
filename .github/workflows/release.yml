@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: routeburn-release-main
@@ -58,29 +58,24 @@ jobs:
           install-only: true
 
       - name: Validate release configuration
+        env:
+          # Defined-but-empty so the tap template resolves during a dry run.
+          HOMEBREW_TAP_TOKEN: ""
         run: |
           goreleaser check
           goreleaser release --snapshot --clean
           git diff --exit-code
 
-      - name: Create short-lived release token
-        id: release-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: |
-            routeburn
-            homebrew-routeburn
-          permission-contents: write
-
       - name: Determine version and publish release
         id: semantic
         run: ./node_modules/.bin/semantic-release
         env:
-          GITHUB_TOKEN: ${{ steps.release-token.outputs.token }}
-          HOMEBREW_TAP_TOKEN: ${{ steps.release-token.outputs.token }}
+          # The workflow's own token is enough to tag, publish the release and
+          # push the formula. The tap push needs HOMEBREW_TAP_TOKEN, which is
+          # only set when a tap token secret exists; without it GoReleaser
+          # skips the tap upload and the release still succeeds.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           GIT_AUTHOR_NAME: routeburn-release-bot
           GIT_AUTHOR_EMAIL: routeburn-release-bot@users.noreply.github.com
           GIT_COMMITTER_NAME: routeburn-release-bot
@@ -108,12 +103,11 @@ jobs:
     env:
       EXPECTED_VERSION: ${{ needs.release.outputs.version }}
     steps:
-      - name: Install and test published formula
+      - name: Install and test published cask
         run: |
           brew tap acevedomiguel/routeburn
-          brew install routeburn
+          brew install --cask routeburn
           routeburn --version | grep -F "routeburn version ${EXPECTED_VERSION}"
-          brew test routeburn
 
   verify-archives:
     needs: release

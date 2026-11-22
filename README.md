@@ -93,7 +93,7 @@ Create a management key at
 
 ```bash
 brew tap acevedomiguel/routeburn
-brew install routeburn
+brew install --cask routeburn
 routeburn --version
 ```
 
@@ -101,7 +101,7 @@ Upgrades arrive through the same tap:
 
 ```bash
 brew update
-brew upgrade routeburn
+brew upgrade --cask routeburn
 ```
 
 ### Go
