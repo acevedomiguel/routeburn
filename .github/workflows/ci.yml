@@ -76,14 +76,14 @@ jobs:
           cache: true
 
       - name: Validate GoReleaser configuration
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: "~> v2"
           args: check
 
       - name: Build snapshot
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         env:
           # Defined-but-empty so the tap template resolves; the tap upload is
           # skipped when no tap token is configured.
