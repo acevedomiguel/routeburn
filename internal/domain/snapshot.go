@@ -4,7 +4,11 @@ import "time"
 
 // SchemaVersion is the version of the snapshot and cache schema. It is
 // independent of the application version.
-const SchemaVersion = 1
+//
+// Version 2 added the request count and the prompt/completion/cached/reasoning
+// token split to the last-30-day totals. Bumping it invalidates caches written
+// by version 1, which would otherwise load as zeroes for the new fields.
+const SchemaVersion = 2
 
 // Snapshot is the provider-independent view of one RouteBurn reading.
 // It contains no transport types and no credentials.
@@ -20,6 +24,14 @@ type Snapshot struct {
 	CacheHitRate  *float64
 	Runway        RunwayEstimate
 	Warnings      []Warning
+
+	// The fields below are the 30-day totals the analytics endpoint reports
+	// without extra keys. They are zero when the API did not return them.
+	Requests         int64
+	TokensPrompt     int64
+	TokensCompletion int64
+	CachedTokens     int64
+	ReasoningTokens  int64
 }
 
 // AccountCredits is account-wide purchased and consumed credit, in USD.
@@ -46,6 +58,12 @@ type DailyUsage struct {
 	Day         time.Time
 	CreditSpend float64
 	Tokens      int64
+
+	Requests         int64
+	TokensPrompt     int64
+	TokensCompletion int64
+	CachedTokens     int64
+	ReasoningTokens  int64
 }
 
 // DayTotal is an aggregated DailyUsage bucket; ActiveDays counts days with
@@ -60,6 +78,11 @@ type ModelUsage struct {
 	Model       string
 	CreditSpend float64
 	Tokens      int64
+
+	Requests         int64
+	TokensPrompt     int64
+	TokensCompletion int64
+	CachedTokens     int64
 }
 
 // Warning is a user-facing, non-fatal note attached to a snapshot section.

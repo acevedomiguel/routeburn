@@ -26,15 +26,22 @@ func TestPanelIsExactWidthAndHeight(t *testing.T) {
 	}
 }
 
-// The title is inlaid in the top border, like btop's panel headers.
+// The title is inlaid in the top border, like btop's panel headers. The title
+// is delimited by short downward ticks, not by full-height brackets.
 func TestPanelInlaysTitleInTheTopBorder(t *testing.T) {
 	rows := panel("Credits", nil, 40, 3, plainStyles())
 	top := rows[0]
-	if !strings.HasPrefix(top, "╭─┤") {
+	if !strings.HasPrefix(top, "╭─┬") {
 		t.Errorf("top border = %q", top)
 	}
 	if !strings.Contains(top, " Credits ") {
 		t.Errorf("top border must inlay the title: %q", top)
+	}
+	if !strings.Contains(top, "┬") {
+		t.Errorf("title must be delimited by downward ticks: %q", top)
+	}
+	if strings.Contains(top, "┤") || strings.Contains(top, "├") {
+		t.Errorf("title must not use full-height brackets: %q", top)
 	}
 	if !strings.HasSuffix(top, "╮") {
 		t.Errorf("top border must close: %q", top)
@@ -148,27 +155,21 @@ func TestJoinColumnsAlignsRows(t *testing.T) {
 	}
 }
 
-// The frame's top border carries the wordmark and the status, flush to the edges.
-func TestFrameTopCarriesTitleAndStatus(t *testing.T) {
-	got := frameTop("RouteBurn", "Updated 15:42", 60, plainStyles())
+// The status row carries the freshness text and no app name: the outer frame is
+// gone, so nothing repeats the wordmark inside the app.
+func TestStatusLineCarriesStatusWithoutWordmark(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	got := StatusLine(&snap, ViewOptions{Styles: plainStyles(), Now: fixedNow()}, 60)
 	if width := lipgloss.Width(got); width != 60 {
-		t.Errorf("frame top is %d wide, want 60: %q", width, got)
-	}
-	if !strings.HasPrefix(got, "╭─┤ RouteBurn ├") {
-		t.Errorf("frame top = %q", got)
+		t.Errorf("status line is %d wide, want 60: %q", width, got)
 	}
 	if !strings.Contains(got, "Updated 15:42") {
-		t.Errorf("frame top must carry the status: %q", got)
+		t.Errorf("status line must carry the status: %q", got)
 	}
-}
-
-// frameRow wraps content in the outer frame and pads to the full width.
-func TestFrameRowWrapsAndPads(t *testing.T) {
-	got := frameRow("hello", 20, plainStyles())
-	if width := lipgloss.Width(got); width != 20 {
-		t.Errorf("frame row is %d wide, want 20: %q", width, got)
+	if strings.Contains(got, "RouteBurn") {
+		t.Errorf("status line must not repeat the app name: %q", got)
 	}
-	if !strings.HasPrefix(got, "│") || !strings.HasSuffix(got, "│") {
-		t.Errorf("frame row = %q", got)
+	if strings.Contains(got, "╭") || strings.Contains(got, "│") {
+		t.Errorf("status line must not draw a frame border: %q", got)
 	}
 }

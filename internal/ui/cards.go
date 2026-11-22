@@ -29,10 +29,10 @@ type ViewOptions struct {
 
 // Render draws the full dashboard. It never performs IO.
 //
-// The layout fills the alternate screen exactly: a framed body plus the bubbles
-// help bar pinned to the last row, so the bar never floats mid-screen. Every
-// section is a bordered panel with its title inlaid in the top border, and the
-// panels stretch to fill the frame so no vertical space is left dead.
+// The layout fills the alternate screen exactly: a status row, the panels, and
+// the bubbles help bar pinned to the last row, so the bar never floats
+// mid-screen. There is no outer frame: the panels are the frame, and the app
+// name is not repeated inside the app.
 func Render(snap *domain.Snapshot, opts ViewOptions) string {
 	if opts.Width <= 0 {
 		opts.Width = 80
@@ -42,15 +42,14 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 		return opts.Styles.Warning.Render(lay.Message) + "\n"
 	}
 
-	// The frame occupies one row at the top and one at the bottom; the footer
-	// takes the last row of the terminal. A banner is an extra row above the
-	// frame, so it comes out of the body's budget rather than pushing the footer
-	// off the bottom of the screen.
+	// The status row occupies the top line and the footer the last one. A banner
+	// is an extra row above the status, so it comes out of the body's budget
+	// rather than pushing the footer off the bottom of the screen.
 	bannerRows := 0
 	if opts.Banner != "" {
 		bannerRows = 1
 	}
-	bodyHeight := opts.Height - 3 - bannerRows
+	bodyHeight := opts.Height - 2 - bannerRows
 	if bodyHeight < 1 {
 		bodyHeight = 1
 	}
@@ -66,38 +65,45 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 			opts.Pages = 2
 		}
 		offset := minInt(opts.Scroll, maxOffset)
+		offset = (offset / bodyHeight) * bodyHeight
 		opts.Page = minInt(offset/bodyHeight, opts.Pages-1)
 		lines = lines[offset : offset+bodyHeight]
 	} else {
 		lines = fitLinesSlice(lines, bodyHeight)
 	}
 
-	top := frameTop("RouteBurn", headerStatus(snap, opts), lay.Width, opts.Styles)
-	bottom := frameBottom(lay.Width, opts.Styles)
-	framed := make([]string, 0, bodyHeight+2)
-	framed = append(framed, top)
-	for _, line := range lines {
-		framed = append(framed, frameRow(line, lay.Width, opts.Styles))
-	}
-	framed = append(framed, bottom)
-
 	header := ""
 	if opts.Banner != "" {
 		header = opts.Styles.Banner.Render(truncate(opts.Banner, lay.Width)) + "\n"
 	}
 
+	status := StatusLine(snap, opts, lay.Width)
 	footer := Footer(opts)
-	return header + strings.Join(framed, "\n") + "\n" + footer
+	return header + status + "\n" + strings.Join(lines, "\n") + "\n" + footer
+}
+
+// StatusLine renders the top row: just the freshness status, flush left. It
+// replaces the outer frame's top border and deliberately carries no app name,
+// since the app name inside the app is noise.
+func StatusLine(snap *domain.Snapshot, opts ViewOptions, width int) string {
+	status := headerStatus(snap, opts)
+	if status == "" {
+		return ""
+	}
+	return padRight(opts.Styles.Muted.Render(truncate(status, width)), width)
 }
 
 // dashboardBody composes the interior of the frame: the credit panels, the
 // sparkline, and the model panel. It returns exactly height rows when the
 // content fits, stretching the last panel to absorb the slack.
 func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height int) []string {
-	inner := lay.Width - 2
+	inner := lay.Width
 
-	// Vertical budget inside the frame: two panel borders per panel, plus the
-	// gap row between panels.
+	// Vertical budget: two panel borders per panel, plus the gap row between
+	// panels. The token split only appears once the terminal can afford it: it
+	// costs four extra rows in the top block, which the minimum 60x16 cannot pay.
+	detail := height >= 26
+
 	rows := make([]string, 0, height)
 
 	// Top row: credits and last-30 panels side by side. Both are three leader
@@ -107,13 +113,27 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 		half := (inner - 1) / 2
 		leftWidth := half
 		rightWidth := inner - 1 - leftWidth
-		leftRows := creditsPanelWidth(snap, opts, leftWidth)
 		rightRows := last30PanelWidth(snap, opts, rightWidth)
+		// The credits panel is padded to the right panel's height so both boxes
+		// end on the same row. Without it the shorter column leaves a notch that
+		// reads as a layout bug rather than as deliberate whitespace.
+		leftRows := creditsPanelWidth(snap, opts, leftWidth, len(rightRows))
 		rows = append(rows, joinColumns(leftRows, rightRows)...)
 	} else {
-		rows = append(rows, creditsPanelWidth(snap, opts, inner)...)
+		rows = append(rows, creditsPanelWidth(snap, opts, inner, 0)...)
 		rows = append(rows, "")
 		rows = append(rows, last30PanelWidth(snap, opts, inner)...)
+	}
+
+	// The token split is a full-width panel of its own rather than extra rows in
+	// the last-30 panel. Stacking it inside one column would leave the other
+	// column short and punch a hole in the layout; as its own row both columns
+	// end together.
+	if detail {
+		if tokens := tokenPanel(snap, opts, inner); len(tokens) > 0 {
+			rows = append(rows, "")
+			rows = append(rows, tokens...)
+		}
 	}
 
 	rows = append(rows, "")
@@ -169,8 +189,10 @@ func modelPanelCount(snap *domain.Snapshot, available int) int {
 	return n
 }
 
-// creditsPanelWidth renders the credits panel at an explicit width.
-func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []string {
+// creditsPanelWidth renders the credits panel at an explicit width. A height of
+// zero sizes the panel to its content; a positive height pads it with blank rows
+// so it can sit flush beside a taller neighbour.
+func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
 	t := opts.Styles
 	inner := width - 4
 	if inner < 1 {
@@ -200,10 +222,21 @@ func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []str
 	} else if rw.DailyBurn > 0 {
 		rows = append(rows, leader("Daily burn", domain.FormatCredits(rw.DailyBurn)+"/day", inner, t))
 	}
-	return panel("Credits", rows, width, len(rows)+2, t)
+	if height <= 0 {
+		return panel("Credits", rows, width, len(rows)+2, t)
+	}
+	// Pad with empty rows rather than inventing data: the panel keeps its exact
+	// height contract and the neighbouring box's bottom edge lines up.
+	for len(rows) < height-2 {
+		rows = append(rows, "")
+	}
+	if len(rows) > height-2 {
+		rows = rows[:height-2]
+	}
+	return panel("Credits", rows, width, height, t)
 }
 
-// last30PanelWidth renders the 30-day panel at an explicit width.
+// last30PanelWidth renders the 30-day summary panel at an explicit width.
 func last30PanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []string {
 	t := opts.Styles
 	inner := width - 4
@@ -219,12 +252,69 @@ func last30PanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []stri
 	}
 	rows := []string{
 		leader("Spend", domain.FormatCredits(spend), inner, t),
-		leader("Tokens", domain.FormatTokens(snap.TotalTokens), inner, t),
 	}
+	// A zero request count means the API did not report it, so the row is
+	// omitted rather than shown as a misleading "0".
+	if snap.Requests > 0 {
+		rows = append(rows, leader("Requests", domain.FormatCount(snap.Requests), inner, t))
+	}
+	rows = append(rows, leader("Tokens", domain.FormatTokens(snap.TotalTokens), inner, t))
 	if snap.CacheHitRate != nil {
 		rows = append(rows, leader("Cache hit", fmt.Sprintf("%.1f%%", *snap.CacheHitRate), inner, t))
 	}
 	return panel("Last 30 days", rows, width, len(rows)+2, t)
+}
+
+// tokenPanel renders the prompt/completion/cached/reasoning split as a
+// full-width panel, two leader pairs per row. Every value comes from the same
+// analytics query the dashboard already runs, so the extra detail costs no
+// additional request and no additional API key. It returns nil when the API
+// reported no split, so the panel never appears as a box of zeros.
+func tokenPanel(snap *domain.Snapshot, opts ViewOptions, width int) []string {
+	if snap == nil {
+		return nil
+	}
+	t := opts.Styles
+	inner := width - 4
+	if inner < 1 {
+		inner = 1
+	}
+
+	type pair struct{ label, value string }
+	pairs := make([]pair, 0, 4)
+	if snap.TokensPrompt > 0 {
+		pairs = append(pairs, pair{"Input", domain.FormatTokens(snap.TokensPrompt)})
+	}
+	if snap.TokensCompletion > 0 {
+		pairs = append(pairs, pair{"Output", domain.FormatTokens(snap.TokensCompletion)})
+	}
+	if snap.CachedTokens > 0 {
+		pairs = append(pairs, pair{"Cached", domain.FormatTokens(snap.CachedTokens)})
+	}
+	if snap.ReasoningTokens > 0 {
+		pairs = append(pairs, pair{"Reasoning", domain.FormatTokens(snap.ReasoningTokens)})
+	}
+	if len(pairs) == 0 {
+		return nil
+	}
+
+	// Two pairs per row keeps the panel short: the split costs two rows plus its
+	// borders instead of four, leaving room for the chart and the model panel.
+	colWidth := (inner - 2) / 2
+	if colWidth < 12 {
+		colWidth = inner
+	}
+	rows := make([]string, 0, (len(pairs)+1)/2)
+	for i := 0; i < len(pairs); i += 2 {
+		left := leader(pairs[i].label, pairs[i].value, colWidth, t)
+		if i+1 < len(pairs) {
+			right := leader(pairs[i+1].label, pairs[i+1].value, colWidth, t)
+			rows = append(rows, left+"  "+right)
+		} else {
+			rows = append(rows, left)
+		}
+	}
+	return panel("Tokens", rows, width, len(rows)+2, t)
 }
 
 // sparkPanel renders the daily spend sparkline as a bordered panel.
@@ -392,14 +482,6 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-w)
-}
-
-func padLeft(s string, width int) string {
-	w := lipgloss.Width(s)
-	if w >= width {
-		return s
-	}
-	return strings.Repeat(" ", width-w) + s
 }
 
 // truncate cuts plain text to width, appending an ellipsis when it is cut. It

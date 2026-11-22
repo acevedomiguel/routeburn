@@ -30,6 +30,31 @@ type FetchOptions struct {
 	Previous *domain.Snapshot
 }
 
+// dailyMetrics is everything the dashboard shows per day. Every metric here is
+// included in the same request, so the extra detail costs no additional key or
+// request: the endpoint reports them all for the same query.
+var dailyMetrics = []string{
+	"total_usage",
+	"tokens_total",
+	"tokens_prompt",
+	"tokens_completion",
+	"cached_tokens",
+	"request_count",
+	"reasoning_tokens",
+}
+
+// modelMetrics is the per-model subset. The cache hit rate is derived from the
+// cached and prompt token totals rather than requested directly, so the day and
+// model panels use the same ratio.
+var modelMetrics = []string{
+	"total_usage",
+	"tokens_total",
+	"tokens_prompt",
+	"tokens_completion",
+	"cached_tokens",
+	"request_count",
+}
+
 // FetchRange is the union of the display and runway windows: one extra day at
 // the start lets both windows be derived from a single analytics query.
 func FetchRange(now time.Time) domain.TimeRange {
@@ -76,7 +101,7 @@ func FetchSnapshot(ctx context.Context, api API, opts FetchOptions) (domain.Snap
 	go func() {
 		defer wg.Done()
 		dailyRows, dailyErr = api.QueryAnalytics(ctx, or.AnalyticsQuery{
-			Metrics:     []string{"total_usage", "tokens_total"},
+			Metrics:     dailyMetrics,
 			Granularity: "day",
 			Start:       fetchRange.Start,
 			End:         fetchRange.End,
@@ -88,7 +113,7 @@ func FetchSnapshot(ctx context.Context, api API, opts FetchOptions) (domain.Snap
 		// a single row. Asking per day returned one row per model per day, which
 		// then had to be summed locally and silently truncated by Limit.
 		modelRows, modelErr = api.QueryAnalytics(ctx, or.AnalyticsQuery{
-			Metrics:    []string{"total_usage", "tokens_total"},
+			Metrics:    modelMetrics,
 			Dimensions: []string{"model"},
 			Start:      fetchRange.Start,
 			End:        fetchRange.End,
@@ -142,10 +167,22 @@ func FetchSnapshot(ctx context.Context, api API, opts FetchOptions) (domain.Snap
 	case analyticsOK:
 		rows := toDailyRows(dailyRows)
 		snap.Daily = domain.AggregateDaily(displayRange, rows)
-		snap.TotalTokens = domain.SumDaily(domain.AggregateDaily(displayRange, rows)).Tokens
+		total := domain.SumDaily(snap.Daily)
+		snap.TotalTokens = total.Tokens
+		snap.Requests = total.Requests
+		snap.TokensPrompt = total.TokensPrompt
+		snap.TokensCompletion = total.TokensCompletion
+		snap.CachedTokens = total.CachedTokens
+		snap.ReasoningTokens = total.ReasoningTokens
+		snap.CacheHitRate = domain.CacheHitRate(total)
 	case opts.Previous != nil:
 		snap.Daily = opts.Previous.Daily
 		snap.TotalTokens = opts.Previous.TotalTokens
+		snap.Requests = opts.Previous.Requests
+		snap.TokensPrompt = opts.Previous.TokensPrompt
+		snap.TokensCompletion = opts.Previous.TokensCompletion
+		snap.CachedTokens = opts.Previous.CachedTokens
+		snap.ReasoningTokens = opts.Previous.ReasoningTokens
 		warnings = append(warnings, domain.Warning{
 			Section: "Timestamps",
 			Message: "daily figures come from the last successful refresh",
@@ -226,9 +263,14 @@ func toDailyRows(rows []or.AnalyticsRow) []domain.DailyUsage {
 	out := make([]domain.DailyUsage, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, domain.DailyUsage{
-			Day:         r.Day.UTC(),
-			CreditSpend: r.CreditSpend,
-			Tokens:      r.Tokens,
+			Day:              r.Day.UTC(),
+			CreditSpend:      r.CreditSpend,
+			Tokens:           r.Tokens,
+			Requests:         r.RequestCount,
+			TokensPrompt:     r.TokensPrompt,
+			TokensCompletion: r.TokensCompletion,
+			CachedTokens:     r.CachedTokens,
+			ReasoningTokens:  r.ReasoningTokens,
 		})
 	}
 	return out
@@ -244,7 +286,15 @@ func toModelRows(rows []or.AnalyticsRow) []domain.ModelUsage {
 		if r.Model == "" {
 			continue
 		}
-		out = append(out, domain.ModelUsage{Model: r.Model, CreditSpend: r.CreditSpend, Tokens: r.Tokens})
+		out = append(out, domain.ModelUsage{
+			Model:            r.Model,
+			CreditSpend:      r.CreditSpend,
+			Tokens:           r.Tokens,
+			Requests:         r.RequestCount,
+			TokensPrompt:     r.TokensPrompt,
+			TokensCompletion: r.TokensCompletion,
+			CachedTokens:     r.CachedTokens,
+		})
 	}
 	return out
 }

@@ -255,11 +255,33 @@ func (q AnalyticsQuery) marshal() ([]byte, error) {
 }
 
 // AnalyticsRow is one aggregation row mapped to domain values.
+//
+// Every field below total_usage/tokens_total is optional: the API only returns
+// the metrics the query asked for, and older responses omit the newer ones. A
+// zero value therefore means "not requested or not reported", never "zero
+// measured" — callers that need to tell the difference check the matching
+// *Set flag.
 type AnalyticsRow struct {
 	Day         time.Time
 	Model       string
 	CreditSpend float64
 	Tokens      int64
+
+	// RequestCount is the number of inference requests in the row.
+	RequestCount int64
+	// TokensPrompt and TokensCompletion split Tokens into input and output.
+	TokensPrompt     int64
+	TokensCompletion int64
+	// CachedTokens is the prompt tokens served from the provider cache.
+	CachedTokens int64
+	// ReasoningTokens is the subset of completion tokens spent reasoning.
+	ReasoningTokens int64
+	// CacheHitRate is the provider-reported cache hit ratio in 0..1.
+	CacheHitRate float64
+
+	// HasCacheHitRate reports whether the row carried a cache hit rate, so a
+	// genuine 0.0 is distinguishable from a missing metric.
+	HasCacheHitRate bool
 }
 
 // QueryAnalytics runs an aggregation query.

@@ -83,12 +83,23 @@ func decodeAnalyticsRows(raw json.RawMessage) ([]AnalyticsRow, error) {
 
 	out := make([]AnalyticsRow, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, AnalyticsRow{
+		r := AnalyticsRow{
 			Day:         rowTime(row),
 			Model:       rowString(row, "model", "model_name", "model_permaslug"),
 			CreditSpend: rowFloat(row, "total_usage", "usage", "credit_spend", "credits"),
 			Tokens:      int64(rowFloat(row, "tokens_total", "tokens", "total_tokens")),
-		})
+
+			RequestCount:     int64(rowFloat(row, "request_count", "requests")),
+			TokensPrompt:     int64(rowFloat(row, "tokens_prompt", "prompt_tokens")),
+			TokensCompletion: int64(rowFloat(row, "tokens_completion", "completion_tokens")),
+			CachedTokens:     int64(rowFloat(row, "cached_tokens", "cache_read_tokens")),
+			ReasoningTokens:  int64(rowFloat(row, "reasoning_tokens")),
+		}
+		if rate, ok := rowNumber(row, "cache_hit_rate"); ok {
+			r.CacheHitRate = rate
+			r.HasCacheHitRate = true
+		}
+		out = append(out, r)
 	}
 	return out, nil
 }
@@ -130,6 +141,13 @@ func rowString(row map[string]any, keys ...string) string {
 }
 
 func rowFloat(row map[string]any, keys ...string) float64 {
+	f, _ := rowNumber(row, keys...)
+	return f
+}
+
+// rowNumber is rowFloat plus an explicit presence flag, so a metric that is
+// genuinely zero stays distinguishable from one the response did not include.
+func rowNumber(row map[string]any, keys ...string) (float64, bool) {
 	for _, key := range keys {
 		value, ok := row[key]
 		if !ok {
@@ -137,18 +155,18 @@ func rowFloat(row map[string]any, keys ...string) float64 {
 		}
 		switch typed := value.(type) {
 		case float64:
-			return typed
+			return typed, true
 		case int64:
-			return float64(typed)
+			return float64(typed), true
 		case json.Number:
 			if f, err := typed.Float64(); err == nil {
-				return f
+				return f, true
 			}
 		case string:
 			if f, err := strconv.ParseFloat(typed, 64); err == nil {
-				return f
+				return f, true
 			}
 		}
 	}
-	return 0
+	return 0, false
 }

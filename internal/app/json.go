@@ -27,10 +27,18 @@ type JSONAccount struct {
 	Remaining    float64 `json:"remaining"`
 }
 
-// JSONLast30 is the 30-day display window summary.
+// JSONLast30 is the 30-day display window summary. The detail fields are the
+// values the analytics endpoint already reports for the same query, so they
+// cost no extra request.
 type JSONLast30 struct {
-	CreditSpend float64 `json:"credit_spend"`
-	Tokens      int64   `json:"tokens"`
+	CreditSpend      float64  `json:"credit_spend"`
+	Tokens           int64    `json:"tokens"`
+	Requests         int64    `json:"requests"`
+	TokensPrompt     int64    `json:"tokens_prompt"`
+	TokensCompletion int64    `json:"tokens_completion"`
+	CachedTokens     int64    `json:"cached_tokens"`
+	ReasoningTokens  int64    `json:"reasoning_tokens"`
+	CacheHitRate     *float64 `json:"cache_hit_rate"`
 }
 
 // JSONRunway is the estimated runway section.
@@ -83,9 +91,18 @@ func BuildJSON(snap domain.Snapshot, cached bool) JSONSnapshot {
 			TotalUsage:   snap.Account.TotalUsed,
 			Remaining:    snap.Account.Remaining,
 		},
-		Last30Days: JSONLast30{CreditSpend: total, Tokens: snap.TotalTokens},
-		Runway:     rw,
-		Warnings:   make([]string, 0, len(snap.Warnings)),
+		Last30Days: JSONLast30{
+			CreditSpend:      total,
+			Tokens:           snap.TotalTokens,
+			Requests:         snap.Requests,
+			TokensPrompt:     snap.TokensPrompt,
+			TokensCompletion: snap.TokensCompletion,
+			CachedTokens:     snap.CachedTokens,
+			ReasoningTokens:  snap.ReasoningTokens,
+			CacheHitRate:     snap.CacheHitRate,
+		},
+		Runway:   rw,
+		Warnings: make([]string, 0, len(snap.Warnings)),
 	}
 
 	if snap.Key != nil {

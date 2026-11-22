@@ -29,6 +29,11 @@ func AggregateDaily(r TimeRange, rows []DailyUsage) []DailyUsage {
 		}
 		agg[i].CreditSpend += row.CreditSpend
 		agg[i].Tokens += row.Tokens
+		agg[i].Requests += row.Requests
+		agg[i].TokensPrompt += row.TokensPrompt
+		agg[i].TokensCompletion += row.TokensCompletion
+		agg[i].CachedTokens += row.CachedTokens
+		agg[i].ReasoningTokens += row.ReasoningTokens
 	}
 
 	return agg
@@ -40,11 +45,33 @@ func SumDaily(buckets []DailyUsage) DayTotal {
 	for _, b := range buckets {
 		total.CreditSpend += b.CreditSpend
 		total.Tokens += b.Tokens
+		total.Requests += b.Requests
+		total.TokensPrompt += b.TokensPrompt
+		total.TokensCompletion += b.TokensCompletion
+		total.CachedTokens += b.CachedTokens
+		total.ReasoningTokens += b.ReasoningTokens
 		if b.CreditSpend != 0 || b.Tokens != 0 {
 			total.ActiveDays++
 		}
 	}
 	return total
+}
+
+// CacheHitRate derives the prompt-cache hit ratio from a total. It returns nil
+// when the API reported no prompt tokens, so the dashboard shows the row only
+// when the number is meaningful.
+func CacheHitRate(total DayTotal) *float64 {
+	if total.TokensPrompt <= 0 {
+		return nil
+	}
+	rate := float64(total.CachedTokens) / float64(total.TokensPrompt)
+	if rate < 0 {
+		rate = 0
+	}
+	if rate > 1 {
+		rate = 1
+	}
+	return &rate
 }
 
 // SortModels returns rows ordered by spend descending, ties broken by model
@@ -128,6 +155,12 @@ func FormatTokens(v int64) string {
 		return "-" + out
 	}
 	return out
+}
+
+// FormatCount renders a plain count with thousands separators. It is used for
+// request counts, where a K/M suffix would hide the exact figure.
+func FormatCount(v int64) string {
+	return groupThousands(v)
 }
 
 // ShortModelName strips the vendor prefix and a trailing release date from a

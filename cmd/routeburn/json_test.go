@@ -72,8 +72,8 @@ func TestRunJSONPrintsContract(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &decoded); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
 	}
-	if decoded["schema_version"].(float64) != 1 {
-		t.Errorf("schema_version = %v", decoded["schema_version"])
+	if got := int(decoded["schema_version"].(float64)); got != domain.SchemaVersion {
+		t.Errorf("schema_version = %v, want %d", got, domain.SchemaVersion)
 	}
 	if decoded["cached"] != false {
 		t.Errorf("cached = %v", decoded["cached"])

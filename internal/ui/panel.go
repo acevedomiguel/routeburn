@@ -18,6 +18,10 @@ const (
 	boxHorizontal  = "─"
 	boxVertical    = "│"
 	boxDot         = "·"
+	// boxTick is the title delimiter: a short stroke hanging down from the
+	// horizontal border, so the title reads as a notch in the line rather than
+	// as a full-height vertical bar interrupting it.
+	boxTick = "┬"
 )
 
 // panel draws one bordered box exactly width columns wide and height rows tall,
@@ -45,7 +49,12 @@ func panelWithCaption(title, caption string, rows []string, width, height int, s
 	}
 
 	title = truncate(title, maxInt(inner-5, 1))
-	head := boxHorizontal + "┤ " + st.CardHead.Render(title) + " ├"
+	// The title sits in a notch: the border runs flat, dips down at each end of
+	// the word with a tick, and resumes. Every glyph on the border uses the same
+	// accent colour, corners included, so a panel never shows two border colours.
+	open := st.Accent.Render(boxHorizontal + boxTick + " ")
+	close := st.Accent.Render(" " + boxTick)
+	head := open + st.CardHead.Render(title) + close
 	tail := ""
 	if caption != "" {
 		if room := inner - lipgloss.Width(head) - 5; room > 0 {
@@ -58,7 +67,7 @@ func panelWithCaption(title, caption string, rows []string, width, height int, s
 	}
 
 	out := make([]string, 0, height)
-	out = append(out, boxTopLeft+st.Accent.Render(head)+strings.Repeat(boxHorizontal, fill)+st.Accent.Render(tail)+boxTopRight)
+	out = append(out, st.Accent.Render(boxTopLeft)+head+st.Accent.Render(strings.Repeat(boxHorizontal, fill)+tail+boxTopRight))
 
 	for i := 0; i < height-2; i++ {
 		row := ""
@@ -74,7 +83,7 @@ func panelWithCaption(title, caption string, rows []string, width, height int, s
 		out = append(out, st.Accent.Render(boxVertical)+" "+row+" "+st.Accent.Render(boxVertical))
 	}
 
-	out = append(out, boxBottomLeft+st.Accent.Render(strings.Repeat(boxHorizontal, inner))+boxBottomRight)
+	out = append(out, st.Accent.Render(boxBottomLeft+strings.Repeat(boxHorizontal, inner)+boxBottomRight))
 	return out
 }
 
@@ -150,53 +159,6 @@ func joinColumns(blocks ...[]string) []string {
 		out = append(out, strings.TrimRight(b.String(), " "))
 	}
 	return out
-}
-
-// frameTop draws the outer frame's top border with the wordmark inlaid and the
-// freshness status flush right.
-func frameTop(title, right string, width int, st Styles) string {
-	inner := width - 2
-	if inner < 1 {
-		inner = 1
-	}
-	head := boxHorizontal + "┤ " + st.CardHead.Render(title) + " ├"
-	tail := boxHorizontal
-	if right != "" {
-		tail = " " + st.Muted.Render(right) + " " + boxHorizontal
-	}
-	fill := inner - lipgloss.Width(head) - lipgloss.Width(tail)
-	if fill < 1 {
-		tail = boxHorizontal
-		fill = inner - lipgloss.Width(head) - 1
-	}
-	if fill < 0 {
-		fill = 0
-	}
-	return boxTopLeft + st.Muted.Render(head) + strings.Repeat(boxHorizontal, fill) + st.Muted.Render(tail) + boxTopRight
-}
-
-// frameBottom draws the outer frame's bottom border.
-func frameBottom(width int, st Styles) string {
-	inner := width - 2
-	if inner < 1 {
-		inner = 1
-	}
-	return boxBottomLeft + st.Muted.Render(strings.Repeat(boxHorizontal, inner)) + boxBottomRight
-}
-
-// frameRow wraps one body line in the outer frame's side borders.
-func frameRow(content string, width int, st Styles) string {
-	inner := width - 2
-	if inner < 1 {
-		inner = 1
-	}
-	if lipgloss.Width(content) > inner {
-		if !strings.ContainsRune(content, '\x1b') {
-			content = truncate(content, inner)
-		}
-	}
-	content = padRight(content, inner)
-	return st.Muted.Render(boxVertical) + content + st.Muted.Render(boxVertical)
 }
 
 // fitLinesSlice pads or trims the body so the frame and footer always land on

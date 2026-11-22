@@ -40,8 +40,12 @@ func TestRenderTooSmallShowsResizeHint(t *testing.T) {
 func TestRenderShowsCoreFacts(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
 	out := Render(&snap, ViewOptions{Width: 100, Height: 40, Styles: plainStyles(), Now: fixedNow()})
+	// The app name is deliberately absent: the outer frame that carried it was
+	// removed at the user's request, and nothing else repeats the wordmark.
+	if strings.Contains(out, "RouteBurn") {
+		t.Errorf("dashboard must not repeat the app name:\n%s", out)
+	}
 	for _, want := range []string{
-		"RouteBurn",
 		"Credits",
 		"$42.10",
 		"Runway",
