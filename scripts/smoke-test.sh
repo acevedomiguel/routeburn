@@ -7,7 +7,9 @@
 #   ROUTEBURN_SMOKE=1 scripts/smoke-test.sh
 #
 # Requirements:
-#   - ROUTEBURN_MANAGEMENT_KEY (or a resolvable credential) for the aggregate run
+#   - a resolvable OpenRouter management key: either ROUTEBURN_MANAGEMENT_KEY in
+#     the environment, or the key already stored by `routeburn setup`. The script
+#     never demands the key itself; it lets the binary resolve it.
 #   - a built ./routeburn (or ROUTEBURN_BIN pointing elsewhere)
 #
 # Guarantees:
@@ -28,9 +30,15 @@ if [[ ! -x "$BIN" ]]; then
   exit 1
 fi
 
-if [[ -z "${ROUTEBURN_MANAGEMENT_KEY:-}" ]]; then
-  echo "smoke-test: ROUTEBURN_MANAGEMENT_KEY is not set" >&2
-  exit 1
+# A keyring-backed credential may be exported as "go-keyring-base64:<base64>".
+# Decode it so the binary receives the raw key it expects.
+if [[ "${ROUTEBURN_MANAGEMENT_KEY:-}" == go-keyring-base64:* ]]; then
+  encoded="${ROUTEBURN_MANAGEMENT_KEY#go-keyring-base64:}"
+  if ! decoded="$(printf '%s' "$encoded" | base64 -d 2>/dev/null)"; then
+    echo "smoke-test: could not decode go-keyring-base64 credential" >&2
+    exit 1
+  fi
+  export ROUTEBURN_MANAGEMENT_KEY="$decoded"
 fi
 
 tmpdir="$(mktemp -d)"
@@ -54,6 +62,9 @@ stderr_file="$tmpdir/stderr.txt"
 if ! XDG_CACHE_HOME="$tmpdir/cache" XDG_CONFIG_HOME="$tmpdir/config" \
     "$BIN" --json --no-cache >"$json" 2>"$stderr_file"; then
   cat "$stderr_file" >&2
+  if grep -Eiq 'no openrouter|management key|credential' "$stderr_file"; then
+    fail "no credential resolved; run 'routeburn setup' or export ROUTEBURN_MANAGEMENT_KEY"
+  fi
   fail "--json exited non-zero"
 fi
 
@@ -72,8 +83,8 @@ def need(container, key, label, types):
         raise SystemExit(f"{label}.{key} has type {type(value).__name__}, want {types}")
     return value
 
-if need(data, "schema_version", "root", int) != 1:
-    raise SystemExit("schema_version must be 1")
+if need(data, "schema_version", "root", int) != 2:
+    raise SystemExit("schema_version must be 2")
 need(data, "generated_at", "root", str)
 need(data, "cached", "root", bool)
 
@@ -84,6 +95,13 @@ for key in ("total_credits", "total_usage", "remaining"):
 last = need(data, "last_30_days", "root", dict)
 need(last, "credit_spend", "last_30_days", (int, float))
 need(last, "tokens", "last_30_days", int)
+for key in ("tokens_prompt", "tokens_completion", "cached_tokens", "reasoning_tokens"):
+    need(last, key, "last_30_days", int)
+need(last, "requests", "last_30_days", int)
+# cache_hit_rate is null when the API reports no cached tokens.
+rate = last.get("cache_hit_rate")
+if rate is not None and not 0.0 <= rate <= 1.0:
+    raise SystemExit("last_30_days.cache_hit_rate must be a 0..1 fraction")
 
 runway = need(data, "runway", "root", dict)
 need(runway, "window_days", "runway", int)

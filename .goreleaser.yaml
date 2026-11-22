@@ -41,7 +41,7 @@ archives:
       - LICENSE
 
 checksum:
-  name: checksums.txt
+  name_template: checksums.txt
   algorithm: sha256
 
 changelog:
