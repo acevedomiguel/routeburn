@@ -167,3 +167,36 @@ test('asset size budgets', () => {
     statSync(new URL('../../site/assets/images/terminal-demo.avif', import.meta.url)).size;
   expect(initial).toBeLessThanOrEqual(350 * KiB);
 });
+
+// --- Local server containment (regression: path traversal review finding) ---
+
+const rawGet = (path) =>
+  new Promise((resolve, reject) => {
+    import('node:http').then(({ get }) => {
+      get({ host: 'localhost', port: 8321, path }, (res) => {
+        res.resume();
+        res.on('end', () =>
+          resolve({ status: res.statusCode, location: res.headers.location || '' }),
+        );
+      }).on('error', reject);
+    });
+  });
+
+test('server rejects traversal outside the site root', async () => {
+  // SITE_ROOT/../package.json must never be served.
+  expect((await rawGet('/routeburn/%2e%2e/package.json')).status).toBe(404);
+  expect((await rawGet('/routeburn/..%2f..%2fpackage.json')).status).toBe(404);
+
+  // The URL parser resolves %2e%2e before we see it; a redirect back into
+  // the base path is safe, serving anything outside it is not.
+  const dotdot = await rawGet('/routeburn/%2e%2e');
+  if (dotdot.status === 302) {
+    expect(dotdot.location.startsWith('/routeburn')).toBe(true);
+  } else {
+    expect(dotdot.status).toBe(404);
+  }
+});
+
+test('server answers malformed percent-encoding with 400, not a crash', async () => {
+  expect((await rawGet('/routeburn/%zz')).status).toBe(400);
+});

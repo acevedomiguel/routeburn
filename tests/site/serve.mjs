@@ -5,7 +5,7 @@
 // Run directly (node tests/site/serve.mjs [port]) or import { serveSite }.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 
 const SITE_ROOT = new URL('../../site/', import.meta.url).pathname;
 const BASE = '/routeburn/';
@@ -24,9 +24,18 @@ const TYPES = {
 };
 
 export function serveSite(port = 8321) {
+  const siteRoot = resolve(SITE_ROOT);
+
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
-    let path = decodeURIComponent(url.pathname);
+    let path;
+    try {
+      path = decodeURIComponent(url.pathname);
+    } catch {
+      res.writeHead(400, { 'Content-Type': TYPES['.txt'] });
+      res.end('malformed request path');
+      return;
+    }
 
     if (path === '/' || path === '/routeburn') {
       res.writeHead(302, { Location: BASE });
@@ -48,10 +57,15 @@ export function serveSite(port = 8321) {
       return;
     }
 
-    const rel = normalize(path.slice(BASE.length)).replace(/^(\.\.[/\\])+/, '');
-    let file = join(SITE_ROOT, rel || 'index.html');
-    if (path.endsWith('/')) {
+    const rel = path.slice(BASE.length);
+    let file = resolve(join(siteRoot, rel));
+    if (rel === '' || path.endsWith('/')) {
       file = join(file, 'index.html');
+    }
+    if (file !== siteRoot && !file.startsWith(siteRoot + sep)) {
+      res.writeHead(404, { 'Content-Type': TYPES['.txt'] });
+      res.end('outside the project base path');
+      return;
     }
 
     try {
