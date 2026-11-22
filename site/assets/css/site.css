@@ -1,0 +1,387 @@
+/* RouteBurn project site — dark, terminal-inspired. System fonts only. */
+
+:root {
+  --bg: #0b0e11;
+  --bg-panel: #11161b;
+  --bg-inset: #0d1216;
+  --border: #232c34;
+  --text: #e6edf3;
+  --text-muted: #9aa7b2;
+  --accent-cool: #5eead4;
+  --accent-cool-dim: #2dd4bf;
+  --accent-warm: #f0a35e;
+  --success: #4ade80;
+  --focus-ring: #7dd3fc;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --max-width: 46rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+/* Accessibility helpers */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 10;
+  padding: 0.5rem 1rem;
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--accent-cool-dim);
+  border-radius: 0.375rem;
+  transition: top 0.15s ease-out;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 0.125rem;
+}
+
+/* Header */
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.nav {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.5rem;
+}
+
+.wordmark {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.wordmark-mark {
+  color: var(--accent-cool);
+}
+
+.nav-links {
+  list-style: none;
+  margin: 0 0 0 auto;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.nav-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 0.25rem 0;
+}
+
+.nav-links a:hover {
+  color: var(--accent-cool);
+}
+
+/* Layout */
+
+main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+section {
+  padding: 2.5rem 0 1rem;
+}
+
+h1 {
+  font-size: 2.25rem;
+  line-height: 1.2;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-family: var(--mono);
+  font-size: 1.375rem;
+  color: var(--accent-cool);
+  margin: 0 0 1rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--border);
+}
+
+h2::before {
+  content: "╭─ ";
+  color: var(--border);
+}
+
+h3 {
+  font-size: 1.0625rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+a {
+  color: var(--accent-cool);
+}
+
+a:hover {
+  color: var(--accent-warm);
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+}
+
+/* Hero */
+
+.hero {
+  padding-top: 3.5rem;
+}
+
+.accent-warm {
+  color: var(--accent-warm);
+}
+
+.lede {
+  font-size: 1.1875rem;
+  color: var(--text-muted);
+  max-width: 38rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.button {
+  display: inline-block;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.button-primary {
+  background: var(--accent-cool-dim);
+  color: #06281f;
+}
+
+.button-primary:hover {
+  background: var(--accent-cool);
+  color: #06281f;
+}
+
+.button-secondary {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.button-secondary:hover {
+  border-color: var(--accent-cool-dim);
+  color: var(--accent-cool);
+}
+
+/* Terminal preview */
+
+.terminal-figure {
+  margin: 0;
+}
+
+.terminal-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-panel);
+}
+
+.terminal-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Features */
+
+.feature-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.feature-list li {
+  margin-bottom: 0.75rem;
+}
+
+.feature-list strong {
+  color: var(--accent-cool);
+  font-weight: 600;
+}
+
+/* Command blocks */
+
+.command {
+  position: relative;
+  margin: 0 0 1rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.command pre {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.command code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+.copy-button {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.copy-button:hover {
+  color: var(--accent-cool);
+  border-color: var(--accent-cool-dim);
+}
+
+/* Tables */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+}
+
+th {
+  font-family: var(--mono);
+  color: var(--accent-cool);
+  background: var(--bg-panel);
+}
+
+/* Footer */
+
+.site-footer {
+  max-width: var(--max-width);
+  margin: 3rem auto 0;
+  padding: 1.5rem 1.25rem 2.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.site-footer p {
+  margin: 0 0 0.25rem;
+}
+
+/* Larger screens */
+
+@media (min-width: 48rem) {
+  :root {
+    --max-width: 52rem;
+  }
+
+  h1 {
+    font-size: 2.75rem;
+  }
+}
+
+/* Forced colors (Windows High Contrast) */
+
+@media (forced-colors: active) {
+  .button-primary,
+  .button-secondary,
+  .copy-button {
+    border: 1px solid ButtonText;
+  }
+}
