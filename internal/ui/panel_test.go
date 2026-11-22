@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -163,8 +164,12 @@ func TestStatusLineCarriesStatusWithoutWordmark(t *testing.T) {
 	if width := lipgloss.Width(got); width != 60 {
 		t.Errorf("status line is %d wide, want 60: %q", width, got)
 	}
-	if !strings.Contains(got, "Updated 15:42") {
-		t.Errorf("status line must carry the status: %q", got)
+	// The clock is rendered in the machine's local timezone, so the expectation
+	// is computed the same way rather than hard-coded: the test must pass in any
+	// TZ.
+	want := "Updated " + fixedNow().In(time.Local).Format("15:04")
+	if !strings.Contains(got, want) {
+		t.Errorf("status line must carry %q: %q", want, got)
 	}
 	if strings.Contains(got, "RouteBurn") {
 		t.Errorf("status line must not repeat the app name: %q", got)

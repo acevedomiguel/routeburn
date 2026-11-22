@@ -407,10 +407,15 @@ func modelRow(m domain.ModelUsage, total float64, width int, t Styles) string {
 }
 
 // headerStatus renders the freshness text shown in the frame's top border.
+//
+// The snapshot stores GeneratedAt in UTC so the JSON contract and the cache
+// stay timezone-independent, but the dashboard is read by a person: the clock
+// is rendered in the machine's local timezone so "Updated 17:42" matches the
+// wall clock next to the terminal.
 func headerStatus(snap *domain.Snapshot, opts ViewOptions) string {
 	when := ""
 	if snap != nil && !snap.GeneratedAt.IsZero() {
-		when = snap.GeneratedAt.Format("15:04")
+		when = snap.GeneratedAt.In(time.Local).Format("15:04")
 	}
 	switch {
 	case opts.Cached:
