@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/acevedomiguel/routeburn/compare/v1.1.0...v1.1.1) (2026-11-22)
+
+### Bug Fixes
+
+* generate the cask with postflight_steps ([#14](https://github.com/acevedomiguel/routeburn/issues/14)) ([d003f76](https://github.com/acevedomiguel/routeburn/commit/d003f76d2b510f579d64644f585c8ebd2bcb9de4))
+
 ## [1.1.0](https://github.com/acevedomiguel/routeburn/compare/v1.0.1...v1.1.0) (2026-11-22)
 
 ### Features
