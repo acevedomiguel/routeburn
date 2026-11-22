@@ -1,3 +1,13 @@
+## 1.0.0 (2026-11-22)
+
+### Features
+
+* ship the RouteBurn read-only OpenRouter dashboard ([#1](https://github.com/acevedomiguel/routeburn/issues/1)) ([83050a5](https://github.com/acevedomiguel/routeburn/commit/83050a52f1d09fbfe6635e0432609651bec5a372))
+
+### Bug Fixes
+
+* **release:** render changelog notes with a writer the preset accepts ([#8](https://github.com/acevedomiguel/routeburn/issues/8)) ([b0c8395](https://github.com/acevedomiguel/routeburn/commit/b0c8395d67fe2837aa175828d240a908cfcd33ed))
+
 # Changelog
 
 All notable changes to this project are documented in this file.
