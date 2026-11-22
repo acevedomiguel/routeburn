@@ -9,7 +9,8 @@
   "scripts": {
     "release": "semantic-release",
     "release:dry-run": "semantic-release --dry-run",
-    "commitlint": "commitlint"
+    "commitlint": "commitlint",
+    "check:release-notes": "node scripts/check-release-notes.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
@@ -19,7 +20,7 @@
     "@semantic-release/exec": "7.1.0",
     "@semantic-release/git": "11.0.1",
     "@semantic-release/release-notes-generator": "14.1.1",
-    "conventional-changelog-conventionalcommits": "10.4.1",
+    "conventional-changelog-conventionalcommits": "9.3.1",
     "semantic-release": "25.0.9"
   }
 }

@@ -39,6 +39,9 @@ jobs:
       - name: Install release tooling
         run: npm ci
 
+      - name: Verify release notes render
+        run: npm run check:release-notes
+
       - name: Verify application
         run: |
           gofmtcheck=$(gofmt -l .)
