@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
@@ -297,5 +298,46 @@ func TestFocusedTableMarksItsTitle(t *testing.T) {
 	plain := DailyTable(daily, DailyTableOptions{Width: 60, Height: 9, Styles: plainStyles(), Focused: true})
 	if out := strings.Join(plain, "\n"); strings.Contains(out, "\x1b[") {
 		t.Errorf("focused --no-color table must not emit escapes: %q", out)
+	}
+}
+
+// padCell measures display cells, not runes: a heat-coloured value carries
+// ANSI escapes and must still pad to its column width, or the SPEND column
+// loses its right alignment in colour mode.
+func TestPadCellAlignsColouredValues(t *testing.T) {
+	coloured := heatStyle(NewStyles(true), 1).Render("$2.00")
+	padded := padCell(coloured, 7, true)
+	if got := lipgloss.Width(padded); got != 7 {
+		t.Errorf("padded width = %d, want 7: %q", got, padded)
+	}
+	if !strings.HasPrefix(padded, "  ") {
+		t.Errorf("right-aligned value must be left-padded: %q", padded)
+	}
+}
+
+// In colour mode every day's spend sits on the same right edge, under the
+// right-aligned SPEND header — including a plain, uncoloured zero day among
+// heat-coloured ones.
+func TestDailyTableSpendColumnStaysRightAlignedInColour(t *testing.T) {
+	daily := tableDaily(5)
+	daily[4].CreditSpend = 0 // a plain row among heat-coloured ones
+	rows := DailyTable(daily, DailyTableOptions{Width: 80, Height: 11, Styles: NewStyles(true)})
+	edge := -1
+	for _, r := range rows {
+		plain := ansi.Strip(r)
+		i := strings.Index(plain, "$")
+		if i < 0 || strings.Contains(plain, "days") {
+			continue
+		}
+		if edge < 0 {
+			edge = i
+			continue
+		}
+		if i != edge {
+			t.Errorf("spend column drifts: first edge %d, row edge %d: %q", edge, i, plain)
+		}
+	}
+	if edge < 0 {
+		t.Fatal("no spend values found")
 	}
 }

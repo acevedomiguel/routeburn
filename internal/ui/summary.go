@@ -3,14 +3,16 @@ package ui
 import (
 	"fmt"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
 
-// lipglossWidth is the printable width of a string. Every glyph the dashboard
-// draws is single-width, so rune count is exact and avoids an escape-aware
-// measurement on strings the caller has already built.
+// lipglossWidth is the printable width of a string in display cells. Cells
+// may arrive pre-coloured (the daily table's heat ramp), so the measurement
+// must be escape-aware; rune counting would miscount every styled value.
 func lipglossWidth(s string) int {
-	return len([]rune(s))
+	return lipgloss.Width(s)
 }
 
 // ChartSummary is the text alternative for the chart, used by tests and

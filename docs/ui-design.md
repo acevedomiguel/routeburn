@@ -60,7 +60,7 @@ Status: implemented. Reference screenshot supplied by the user 2026-11-21
                                                          │ ───────────────────────────────────────────────────── │
                                                          │  30 days                             $11.29     7.9M  │
                                                          ╰───────────────────────────────────────────────────────╯
- [r] refresh  [↑↓] scroll  [tab] table  [?] help  [q] quit                                                        --- FAIL: TestMockup (0.00s)
+ [r] refresh  [↑↓] scroll  [tab] table  [?] help  [q] quit                                                          
 ```
 
 ## Concrete changes

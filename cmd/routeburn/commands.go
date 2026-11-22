@@ -11,7 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/term"
+	"github.com/mattn/go-isatty"
 
 	"github.com/acevedomiguel/routeburn/internal/app"
 	"github.com/acevedomiguel/routeburn/internal/config"
@@ -202,7 +202,7 @@ func isTerminal(r io.Reader) bool {
 	if !ok {
 		return false
 	}
-	return term.IsTerminal(file.Fd())
+	return isatty.IsTerminal(file.Fd())
 }
 
 func setupWelcome() string {
