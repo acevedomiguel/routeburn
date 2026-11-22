@@ -1,0 +1,119 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.go }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        go:
+          - modfile
+          - stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go from go.mod
+        if: matrix.go == 'modfile'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up current stable Go
+        if: matrix.go == 'stable'
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Format check
+        if: matrix.os != 'windows-latest'
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf 'Unformatted files:\n%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test with race detector
+        run: go test -race ./...
+
+      - name: Build
+        run: go build ./cmd/routeburn
+
+  goreleaser-snapshot:
+    name: goreleaser snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate GoReleaser configuration
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check
+
+      - name: Build snapshot
+        uses: goreleaser/goreleaser-action@v6
+        env:
+          # Defined-but-empty so the tap template resolves; the tap upload is
+          # skipped when no tap token is configured.
+          HOMEBREW_TAP_TOKEN: ""
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean
+
+      - name: Verify go mod tidy is clean
+        run: git diff --exit-code
+
+      - name: Verify injected version
+        run: |
+          ./dist/routeburn_linux_amd64_v1/routeburn --version
+          ./dist/routeburn_linux_amd64_v1/routeburn --version | grep -q 'routeburn version'
+
+  secrets:
+    name: no committed credentials
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject credential-looking files
+        run: |
+          set -eu
+          if git ls-files | grep -E '(^|/)(management-token|api-key|\.netrc|credentials\.json)$'; then
+            echo 'Credential files must never be committed.'
+            exit 1
+          fi
+          if git grep -nIE 'sk-or-v1-[A-Za-z0-9]{16,}' -- . ':!*.md' ':!package-lock.json'; then
+            echo 'An OpenRouter key appears to be committed.'
+            exit 1
+          fi

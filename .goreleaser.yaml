@@ -1,0 +1,70 @@
+version: 2
+
+project_name: routeburn
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: routeburn
+    main: ./cmd/routeburn
+    binary: routeburn
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows ARM64 is not part of the first release surface.
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: routeburn
+    ids:
+      - routeburn
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: git
+
+release:
+  prerelease: auto
+
+# Homebrew formulas are deprecated in GoReleaser v2.10+; casks are the supported
+# path. The tap push is skipped when HOMEBREW_TAP_TOKEN is empty, so a plain
+# release works with only the default GITHUB_TOKEN.
+homebrew_casks:
+  - name: routeburn
+    ids:
+      - routeburn
+    binaries:
+      - routeburn
+    directory: Casks
+    homepage: https://github.com/acevedomiguel/routeburn
+    description: Read-only Go TUI for monitoring OpenRouter credits, usage, and runway
+    repository:
+      owner: acevedomiguel
+      name: homebrew-routeburn
+      branch: main
+    commit_msg_template: "chore: update routeburn to {{ .Tag }}"
+    skip_upload: "{{ if not .Env.HOMEBREW_TAP_TOKEN }}true{{ end }}"

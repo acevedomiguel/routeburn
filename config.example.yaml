@@ -1,0 +1,30 @@
+# Sample RouteBurn configuration.
+#
+# Copy to the path printed by `routeburn config path`, or run
+# `routeburn config reset` to have RouteBurn write it for you.
+#
+# This file never contains credentials. Keys come from the OS keyring,
+# `routeburn setup`, or the ROUTEBURN_MANAGEMENT_KEY / ROUTEBURN_API_KEY
+# environment variables.
+
+# Schema version. Only version 1 is understood.
+version: 1
+
+# How often the dashboard refreshes on its own.
+#   - Minimum is 10s; shorter positive values are rejected.
+#   - 0 disables automatic refresh. Manual refresh and the 10-second manual
+#     throttle still apply.
+refresh_interval: 10s
+
+# Dashboard window in days. Fixed at 30 in the MVP.
+range_days: 30
+
+# Theme: auto, dark, or light. auto follows the terminal background.
+theme: auto
+
+# Color: auto, always, or never. The --no-color flag always wins.
+color: auto
+
+# Store credentials in the OS keyring. When false, RouteBurn uses a 0600
+# fallback file inside its config directory.
+keyring: true
