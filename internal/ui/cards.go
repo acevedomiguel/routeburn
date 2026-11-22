@@ -34,10 +34,11 @@ type ViewOptions struct {
 
 // Render draws the full dashboard. It never performs IO.
 //
-// The layout fills the alternate screen exactly: a status row, the panels, and
-// the bubbles help bar pinned to the last row, so the bar never floats
-// mid-screen. There is no outer frame: the panels are the frame, and the app
-// name is not repeated inside the app.
+// The layout fills the alternate screen exactly: the panels, and the bubbles
+// help bar pinned to the last row, so the bar never floats mid-screen. There
+// is no outer frame: the panels are the frame, and the app name is not
+// repeated inside the app. The freshness status lives in the Credits panel's
+// border caption, not on a floating line.
 func Render(snap *domain.Snapshot, opts ViewOptions) string {
 	if opts.Width <= 0 {
 		opts.Width = 80
@@ -47,14 +48,14 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 		return opts.Styles.Warning.Render(lay.Message) + "\n"
 	}
 
-	// The status row occupies the top line and the footer the last one. A banner
-	// is an extra row above the status, so it comes out of the body's budget
-	// rather than pushing the footer off the bottom of the screen.
+	// The footer occupies the last row. A banner is an extra row above the
+	// body, so it comes out of the body's budget rather than pushing the
+	// footer off the bottom of the screen.
 	bannerRows := 0
 	if opts.Banner != "" {
 		bannerRows = 1
 	}
-	bodyHeight := opts.Height - 2 - bannerRows
+	bodyHeight := opts.Height - 1 - bannerRows
 	if bodyHeight < 1 {
 		bodyHeight = 1
 	}
@@ -82,27 +83,24 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 		header = opts.Styles.Banner.Render(truncate(opts.Banner, lay.Width)) + "\n"
 	}
 
-	status := StatusLine(snap, opts, lay.Width)
 	footer := Footer(opts)
-	return header + status + "\n" + strings.Join(lines, "\n") + "\n" + footer
-}
-
-// StatusLine renders the top row: just the freshness status, flush left. It
-// replaces the outer frame's top border and deliberately carries no app name,
-// since the app name inside the app is noise.
-func StatusLine(snap *domain.Snapshot, opts ViewOptions, width int) string {
-	status := headerStatus(snap, opts)
-	if status == "" {
-		return ""
-	}
-	return padRight(opts.Styles.Muted.Render(truncate(status, width)), width)
+	return header + strings.Join(lines, "\n") + "\n" + footer
 }
 
 // dashboardBody composes the interior of the frame: the credit panels, the
-// sparkline, and the model panel. It returns exactly height rows when the
+// daily table, and the model panel. It returns exactly height rows when the
 // content fits, stretching the last panel to absorb the slack.
 func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height int) []string {
 	inner := lay.Width
+
+	// Wide terminals get a sidebar: the small panels stack down the left and
+	// the daily table takes a full-height right column, so a 200-column run no
+	// longer hands the table the whole middle of the screen. Below the height
+	// floor the stacked arrangement fits more panels, so it keeps the short
+	// terminal.
+	if lay.Class == ClassWide && lay.TwoColumn && height >= minSidebarHeight {
+		return sidebarBody(snap, opts, inner, height)
+	}
 
 	// Vertical budget: two panel borders per panel, plus the gap row between
 	// panels. The token split only appears once the terminal can afford it: it
@@ -118,6 +116,13 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 		half := (inner - 1) / 2
 		leftWidth := half
 		rightWidth := inner - 1 - leftWidth
+		// The credits panel carries the freshness caption; widen it when the
+		// caption would truncate, as long as the last-30 panel stays readable.
+		if status := headerStatus(snap, opts); status != "" {
+			if need := lipgloss.Width(status) + 19; need > leftWidth && inner-1-need >= minLast30Width {
+				leftWidth, rightWidth = need, inner-1-need
+			}
+		}
 		rightRows := last30PanelWidth(snap, opts, rightWidth)
 		// The credits panel is padded to the right panel's height so both boxes
 		// end on the same row. Without it the shorter column leaves a notch that
@@ -210,6 +215,52 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 // two borders.
 const minModelHeight = 3
 
+// minLast30Width is the narrowest last-30 panel that still reads: a leader
+// row, its dots, and a value.
+const minLast30Width = 28
+
+// minSidebarHeight is the shortest body that can hold the sidebar: credits,
+// last-30, and the token split stacked need most of it before the model panel
+// or the table get anything useful.
+const minSidebarHeight = 20
+
+// minTableWidth is the narrowest right-hand column worth giving the daily
+// table: below it the table drops so many columns the sidebar stops paying
+// for itself.
+const minTableWidth = 44
+
+// sidebarBody is the wide-terminal arrangement: the small panels stack down a
+// left column and the daily table takes a full-height right column. The model
+// panel is last on the left and absorbs the leftover rows, so both columns
+// end on the same row.
+func sidebarBody(snap *domain.Snapshot, opts ViewOptions, inner, height int) []string {
+	// The left column defaults to half, but widens when the freshness caption
+	// would otherwise truncate: the caption needs its own width plus the title
+	// head, the caption slack panelWithCaption reserves, and the two borders.
+	leftWidth := (inner - 1) / 2
+	if status := headerStatus(snap, opts); status != "" {
+		if need := lipgloss.Width(status) + 19; need > leftWidth && inner-1-need >= minTableWidth {
+			leftWidth = need
+		}
+	}
+	rightWidth := inner - 1 - leftWidth
+
+	left := creditsPanelWidth(snap, opts, leftWidth, 0)
+	left = append(left, "")
+	left = append(left, last30PanelWidth(snap, opts, leftWidth)...)
+	if tokens := tokenPanelHeight(snap, opts, leftWidth, 0); len(tokens) > 0 {
+		left = append(left, "")
+		left = append(left, tokens...)
+	}
+	if remaining := height - len(left) - 1; remaining >= minModelHeight {
+		left = append(left, "")
+		left = append(left, modelPanel(snap, opts, leftWidth, modelPanelCount(snap, remaining-2, leftWidth-4))...)
+	}
+
+	right := dailyTablePanel(snap, opts, rightWidth, height)
+	return joinColumns(left, right)
+}
+
 // minTableHeight lives in dailytable.go: a top border, a column header, one
 // day, a separator, and the total row.
 
@@ -247,15 +298,17 @@ func modelPanelCount(snap *domain.Snapshot, available, textWidth int) int {
 
 // creditsPanelWidth renders the credits panel at an explicit width. A height of
 // zero sizes the panel to its content; a positive height pads it with blank rows
-// so it can sit flush beside a taller neighbour.
+// so it can sit flush beside a taller neighbour. The freshness status rides in
+// the border's caption slot, so the dashboard needs no floating status line.
 func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
 	t := opts.Styles
+	caption := statusCaption(snap, opts, width)
 	inner := width - 4
 	if inner < 1 {
 		inner = 1
 	}
 	if snap == nil {
-		return panel("Credits", []string{t.Muted.Render("loading")}, width, 3, t)
+		return panelWithCaption("Credits", caption, []string{t.Muted.Render("loading")}, width, 3, t)
 	}
 	acct := snap.Account
 	rw := snap.Runway
@@ -279,7 +332,7 @@ func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height in
 		rows = append(rows, leader("Daily burn", domain.FormatCredits(rw.DailyBurn)+"/day", inner, t))
 	}
 	if height <= 0 {
-		return panel("Credits", rows, width, len(rows)+2, t)
+		return panelWithCaption("Credits", caption, rows, width, len(rows)+2, t)
 	}
 	// Pad with empty rows rather than inventing data: the panel keeps its exact
 	// height contract and the neighbouring box's bottom edge lines up.
@@ -289,7 +342,7 @@ func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height in
 	if len(rows) > height-2 {
 		rows = rows[:height-2]
 	}
-	return panel("Credits", rows, width, height, t)
+	return panelWithCaption("Credits", caption, rows, width, height, t)
 }
 
 // last30PanelWidth renders the 30-day summary panel at an explicit width.
@@ -610,6 +663,24 @@ func headerStatus(snap *domain.Snapshot, opts ViewOptions) string {
 		return "Updated " + when
 	}
 	return ""
+}
+
+// statusCaption picks the freshness text for a panel border of the given
+// width: the full headerStatus string when it fits the caption slot, the
+// compact "Cached 2h 14m ago" form when only that fits. The slot's room is
+// the panel width minus the title head and the slack panelWithCaption
+// reserves; anything longer is left to the panel's own truncation.
+func statusCaption(snap *domain.Snapshot, opts ViewOptions, width int) string {
+	full := headerStatus(snap, opts)
+	if lipgloss.Width(full) <= width-19 {
+		return full
+	}
+	if opts.Cached {
+		if compact := "Cached " + FormatAge(opts.CacheAge); lipgloss.Width(compact) <= width-19 {
+			return compact
+		}
+	}
+	return full
 }
 
 // twoColumns places two blocks side by side, padding both to half the width.

@@ -132,10 +132,12 @@ func panelBottom(t *testing.T, lines []string, startRow, startCol int) int {
 }
 
 // issue #12: on a tall terminal the model panel and the token split share one
-// row, placed between the credits/last-30 row and the daily sparkline.
+// row, placed between the credits/last-30 row and the daily table. Pinned at
+// 90 columns: at 100+ the sidebar arrangement takes over (see
+// TestWideLayoutPutsTheTableBesideThePanels).
 func TestCostByModelAndTokensShareARow(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	out := Render(&snap, ViewOptions{Width: 120, Height: 40, Styles: plainStyles(), Now: fixedNow()})
+	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
 	creditsRow, creditsCol := panelCol(t, lines, "╭─┬ Credits")
@@ -174,7 +176,8 @@ func TestCostByModelAndTokensShareARow(t *testing.T) {
 // panel's, exactly like the credits/last-30 pattern.
 func TestSharedRowPanelsEndOnTheSameRow(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	out := Render(&snap, ViewOptions{Width: 120, Height: 40, Styles: plainStyles(), Now: fixedNow()})
+	// 90 columns: at 100+ the sidebar stacks these panels instead.
+	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
 	modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
