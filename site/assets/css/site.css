@@ -191,6 +191,11 @@ code {
   border: 1px solid var(--border);
   border-radius: 0.25rem;
   padding: 0.1em 0.35em;
+  overflow-wrap: anywhere;
+}
+
+main a {
+  overflow-wrap: anywhere;
 }
 
 /* Hero */
@@ -306,6 +311,7 @@ code {
   border: 0;
   padding: 0;
   font-size: inherit;
+  overflow-wrap: normal;
 }
 
 .copy-button {

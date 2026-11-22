@@ -21,3 +21,5 @@ management-token
 api-key
 config.local.yaml
 snapshot.json
+lighthouse-report/
+test-results/
