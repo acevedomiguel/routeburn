@@ -7,6 +7,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/acevedomiguel/routeburn/internal/app"
 	"github.com/acevedomiguel/routeburn/internal/domain"
@@ -32,9 +34,21 @@ func demoModel(now func() time.Time) *app.Model {
 	})
 }
 
+// forceDemoColorProfile pins the lipgloss profile so recordings render in
+// color regardless of the recorder's environment.
+func forceDemoColorProfile() {
+	lipgloss.SetColorProfile(termenv.ANSI256)
+}
+
 // runDemo starts the dashboard on the synthetic fixture. It is intentionally
 // hidden from the usage text.
 func runDemo(stdin io.Reader, stdout, stderr io.Writer) int {
+	// Recorders inherit the operator's environment, where NO_COLOR or a
+	// non-tty probe would silently flatten the dashboard to plain text. The
+	// demo exists to produce representative captures, so it pins the profile
+	// the way an interactive terminal would present it.
+	forceDemoColorProfile()
+
 	model := demoModel(func() time.Time { return time.Now().UTC() })
 
 	program := tea.NewProgram(model,
