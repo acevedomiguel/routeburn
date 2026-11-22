@@ -72,8 +72,13 @@ homebrew_casks:
     # ad-hoc signed. macOS quarantines the download and Gatekeeper kills the
     # unsigned binary on first run. Clear the quarantine flag after staging so
     # `routeburn` works straight after `brew install --cask`.
-    custom_block: |
-      postflight do
-        system_command "/usr/bin/xattr",
-                       args: ["-dr", "com.apple.quarantine", "#{staged_path}/routeburn"]
-      end
+    #
+    # This uses Homebrew's declarative install-steps DSL via GoReleaser's
+    # `hooks`, which renders `postflight_steps`. The legacy `postflight` stanza
+    # is deprecated and makes every `brew` command print a warning.
+    hooks:
+      post:
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/routeburn"]
+          end
