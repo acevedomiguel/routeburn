@@ -104,6 +104,15 @@ brew update
 brew upgrade --cask routeburn
 ```
 
+The cask downloads a prebuilt binary rather than compiling from source. That
+binary is not notarized by Apple, so the cask clears the macOS quarantine flag
+after staging; without that step Gatekeeper would kill the binary on first run.
+The tap is a third-party tap, so Homebrew asks you to trust it once:
+
+```bash
+brew trust acevedomiguel/routeburn
+```
+
 ### Go
 
 ```bash
