@@ -56,7 +56,7 @@
         <source srcset="assets/images/terminal-demo.avif" type="image/avif">
         <source srcset="assets/images/terminal-demo.webp" type="image/webp">
         <img src="assets/images/terminal-demo.webp" width="1280" height="800"
-             alt="RouteBurn terminal dashboard showing a credits panel with remaining balance, runway, and daily burn, a last-30-days panel, a daily credit spend chart, and a cost-by-model panel.">
+             alt="RouteBurn terminal dashboard with a left sidebar of panels — credits with remaining balance, runway and daily burn, last-30-days totals, token split, and cost by model — beside a full-height daily spend table whose rows carry heat-coloured inline bars from green to red.">
       </picture>
       <figcaption>Synthetic example data — no real account figures.</figcaption>
     </figure>
@@ -66,10 +66,10 @@
     <h2 id="features-title">Features</h2>
     <ul class="feature-list">
       <li><strong>Credit balance and recent cost monitoring.</strong> Remaining account credit as a single figure, plus spend, requests, tokens, and cache-hit rate for the last 30 days.</li>
-      <li><strong>Daily spend chart.</strong> 30 daily UTC buckets rendered as a block sparkline, with the peak day named in the panel caption.</li>
+      <li><strong>Daily spend table.</strong> 30 daily UTC buckets as a scrollable table — date, spend, tokens, requests, and cache hit rate, newest first, with a pinned total row and an inline per-day meter heat-coloured green to red by share of the peak day.</li>
       <li><strong>Cost by model.</strong> Model spend for the same window, ranked with an inline proportional meter and an <code>Other (remaining)</code> rollup.</li>
       <li><strong>Credit-runway estimate.</strong> Days until the balance reaches zero at the recent burn rate, with low-confidence and edge cases labelled instead of guessed.</li>
-      <li><strong>Built on Charmbracelet Bubbles.</strong> The help bar, refresh spinner, and pagination dots are Bubbles components in a full-screen alternate-screen layout.</li>
+      <li><strong>Built on Charm v2.</strong> The help bar, refresh spinner, pagination dots, and the daily table are Charm components in a full-screen alternate-screen layout; on wide terminals the panels stack in a sidebar beside the table.</li>
       <li><strong>Offline snapshot cache.</strong> The last successful refresh renders immediately on startup, explicitly labelled with its age.</li>
       <li><strong>Scriptable.</strong> <code>routeburn --json</code> prints a versioned snapshot for scripts and dashboards.</li>
       <li><strong>Polite API usage.</strong> Configurable refresh interval with a 10-second minimum, plus server-directed throttling when OpenRouter asks to slow down.</li>
