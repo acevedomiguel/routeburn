@@ -1,6 +1,7 @@
 # Local worktrees and agent scratch
 /.worktrees/
 /.superpowers/
+/docs/superpowers/
 
 # Build output
 /routeburn
