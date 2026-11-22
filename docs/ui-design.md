@@ -23,22 +23,31 @@ Status: implemented. Reference screenshot supplied by the user 2026-11-21
 ## Mapped onto RouteBurn
 
 ```
-╭─┤ routeburn ├──────────────────────────────────────────── 15:42 ─╮
-│                                                                  │
-│ ╭─┤ Credits ├─────────────────╮ ╭─┤ Last 30 days ├────────────╮  │
-│ │ Remaining ········· $18.43  │ │ Spend ············· $5.13  │  │
-│ │ Runway ············ 195 days│ │ Tokens ··········· 195.9M  │  │
-│ │ Daily burn ········ $0.09   │ │ Models ·············· 2    │  │
-│ ╰─────────────────────────────╯ ╰────────────────────────────╯  │
-│ ╭─┤ Daily credit spend ├────────────────────────────────────╮   │
-│ │ ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▃▂▅█   peak $2.30 · Nov 21      │   │
-│ ╰──────────────────────────────────────────────────────────╯   │
-│ ╭─┤ Cost by model ├─────────────────────────────────────────╮   │
-│ │ deepseek-v4.1-flash ·········· $2.61 ▇▇▇▇▇▇▇▇▇▇  52%     │   │
-│ │ kimi-k3.1-pro ··············· $2.52 ▇▇▇▇▇▇▇▇▇  50%        │   │
-│ ╰──────────────────────────────────────────────────────────╯   │
-╰──────────────────────────────────────────────────────────────────╯
- ↑↓ scroll  r refresh  ? help  q quit                       0/1
+╭─┬ Credits ┬─────────────────────╮ ╭─┬ Last 30 days ┬─────────────────╮
+│ Remaining ·············· $42.10 │ │ Spend ··················· $11.29 │
+│ Runway ······· 102 days ~Mar 03 │ │ Requests ················· 1,240 │
+│ Daily burn ·········· $0.41/day │ │ Tokens ···················· 8.4M │
+│                                 │ │ Cache hit ················ 18.4% │
+╰─────────────────────────────────╯ ╰──────────────────────────────────╯
+
+╭─┬ Cost by model ┬───────────────╮ ╭─┬ Tokens ┬───────────────────────╮
+│ claude-so... · $7.21 ▇▇▇▇░░ 58% │ │ Input ····················· 7.1M │
+│ gpt-5 ········ $3.82 ▇▇░░░░ 31% │ │ Output ···················· 1.3M │
+│ llama-4-70b ·· $1.31 ▇░░░░░ 11% │ │ Cached ···················· 1.5M │
+│                                 │ │ Reasoning ················· 480K │
+╰─────────────────────────────────╯ ╰──────────────────────────────────╯
+
+╭─┬ Daily credit spend ┬───────────────────────── peak $1.20 · Nov 05 ─╮
+│                               ██                                     │
+│                               ██                                     │
+│                    ██       ████                                     │
+│                    ██       ██████                                   │
+│                 █████       ██████          ██       ██              │
+│        ███      ███████     ██████          ████     ████       ██   │
+│      █████      █████████████████████       ██████   ██████     ████ │
+│      ███████    █████████████████████  █████████████████████████████ │
+│ ▁▁▁███████████▁▁█████████████████████▁▁█████████████████████████████ │
+╰──────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Concrete changes
@@ -80,6 +89,10 @@ to stay visible at 100/110/120/140 columns.
    terminal instead of staying at three rows.
 5. `ShortModelName` in `internal/domain` plus a model panel with inline meters.
 6. Full suite green; renders captured at 60x20, 72x24, 80x30, 100x40 and 140x50.
+7. The model panel and the token split share a row, model on the left and the
+   split on the right (issue #12). On a 26-row body or taller the two panels are
+   padded to the same height so their borders end together; below that the split
+   is dropped and the model panel keeps the full width.
 
 Note on the footer: the body is fitted to the frame at every supported size, so
 pagination dots are unreachable in practice. The dots code stays as a safety net

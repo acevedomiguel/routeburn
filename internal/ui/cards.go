@@ -125,6 +125,48 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 		rows = append(rows, last30PanelWidth(snap, opts, inner)...)
 	}
 
+	// The model breakdown and the token split share a row of their own, between
+	// the credit panels and the sparkline: model on the left, token split on the
+	// right. Side by side they cost the height of the taller panel instead of the
+	// sum of both, which is what keeps the model list and the sparkline on a
+	// 26-row terminal. The split has no place on a short terminal, so there the
+	// stacked arrangement below runs instead and the model panel keeps the whole
+	// width.
+	if lay.TwoColumn && detail {
+		leftWidth := (inner - 1) / 2
+		rightWidth := inner - 1 - leftWidth
+		remaining := height - len(rows)
+
+		// The model panel sizes to its content and the token split is fixed, so
+		// the shared row is as tall as whichever needs more. The model count is
+		// capped so the sparkline always keeps its minimum below.
+		tokens := tokenPanelHeight(snap, opts, rightWidth, 0)
+		modelCount := modelPanelCount(snap, remaining-minSparkHeight-4, leftWidth-4)
+		rowHeight := modelCount + 2
+		if len(tokens) > rowHeight {
+			rowHeight = len(tokens)
+		}
+
+		// Both panels are padded to the row height so their bottom borders end on
+		// the same row, matching the credits/last-30 pattern. A split that cannot
+		// fit beside the sparkline's minimum is left to the stacked arrangement
+		// below rather than clipped.
+		if len(tokens) > 0 && rowHeight <= remaining-2-minSparkHeight {
+			rows = append(rows, "")
+			leftRows := modelPanelWidth(snap, opts, leftWidth, modelCount, rowHeight)
+			rightRows := tokenPanelHeight(snap, opts, rightWidth, rowHeight)
+			rows = append(rows, joinColumns(leftRows, rightRows)...)
+			rows = append(rows, "")
+
+			sparkHeight := height - len(rows)
+			if sparkHeight < minSparkHeight {
+				sparkHeight = minSparkHeight
+			}
+			rows = append(rows, sparkPanel(snap, opts, inner, sparkHeight)...)
+			return rows
+		}
+	}
+
 	// The token split is a full-width panel of its own rather than extra rows in
 	// the last-30 panel. Stacking it inside one column would leave the other
 	// column short and punch a hole in the layout; as its own row both columns
@@ -152,7 +194,7 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 		return rows
 	}
 
-	modelCount := modelPanelCount(snap, remaining-minSparkHeight-1-2)
+	modelCount := modelPanelCount(snap, remaining-minSparkHeight-1-2, inner-4)
 	sparkHeight := remaining - 1 - (modelCount + 2)
 	if sparkHeight < minSparkHeight {
 		sparkHeight = minSparkHeight
@@ -172,13 +214,28 @@ const minModelHeight = 3
 // of blocks, and a bottom border.
 const minSparkHeight = 3
 
+// minModelNameWidth is the narrowest model name worth rendering. Shorter than
+// this and the row is a column of ellipses that tells the reader nothing.
+const minModelNameWidth = 8
+
+// minModelTailWidth is the room the fixed trailing columns need: the spend and
+// the percentage, plus their separating spaces.
+const minModelTailWidth = 12
+
 // modelPanelCount is how many model rows fit in the space left over after the
 // sparkline takes its minimum. It never returns zero: one row is always shown so
 // the panel never degrades into an empty box.
-func modelPanelCount(snap *domain.Snapshot, available int) int {
+//
+// textWidth is the panel's text width. On the shared row the model panel is
+// half the content width, so a column too narrow to show a name beside the
+// spend collapses to the single top spender instead of stacking ellipses.
+func modelPanelCount(snap *domain.Snapshot, available, textWidth int) int {
 	n := 1
 	if snap != nil && len(snap.Models) > 0 {
 		n = len(domain.TopModels(domain.SortModels(snap.Models), 5))
+	}
+	if textWidth > 0 && textWidth-minModelTailWidth < minModelNameWidth {
+		return 1
 	}
 	if available < 1 {
 		return 1
@@ -265,56 +322,97 @@ func last30PanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []stri
 	return panel("Last 30 days", rows, width, len(rows)+2, t)
 }
 
-// tokenPanel renders the prompt/completion/cached/reasoning split as a
-// full-width panel, two leader pairs per row. Every value comes from the same
-// analytics query the dashboard already runs, so the extra detail costs no
-// additional request and no additional API key. It returns nil when the API
-// reported no split, so the panel never appears as a box of zeros.
-func tokenPanel(snap *domain.Snapshot, opts ViewOptions, width int) []string {
+// tokenPair is one label/value row of the token split.
+type tokenPair struct{ label, value string }
+
+// tokenPairs is the prompt/completion/cached/reasoning split in render order.
+// Every value comes from the same analytics query the dashboard already runs, so
+// the extra detail costs no additional request and no additional API key. It is
+// empty when the API reported no split, so the panel never appears as a box of
+// zeros.
+func tokenPairs(snap *domain.Snapshot) []tokenPair {
 	if snap == nil {
 		return nil
 	}
+	pairs := make([]tokenPair, 0, 4)
+	if snap.TokensPrompt > 0 {
+		pairs = append(pairs, tokenPair{"Input", domain.FormatTokens(snap.TokensPrompt)})
+	}
+	if snap.TokensCompletion > 0 {
+		pairs = append(pairs, tokenPair{"Output", domain.FormatTokens(snap.TokensCompletion)})
+	}
+	if snap.CachedTokens > 0 {
+		pairs = append(pairs, tokenPair{"Cached", domain.FormatTokens(snap.CachedTokens)})
+	}
+	if snap.ReasoningTokens > 0 {
+		pairs = append(pairs, tokenPair{"Reasoning", domain.FormatTokens(snap.ReasoningTokens)})
+	}
+	return pairs
+}
+
+// tokenPairsFitTwoUp reports whether every pair fits in a column of the given
+// width with a dot leader: a label, at least one dot, and the value. When any
+// pair does not fit, the two-up arrangement would clip its value, so the split
+// renders one pair per row instead.
+func tokenPairsFitTwoUp(pairs []tokenPair, colWidth int) bool {
+	for _, p := range pairs {
+		if lipgloss.Width(p.label)+lipgloss.Width(p.value)+3 > colWidth {
+			return false
+		}
+	}
+	return true
+}
+
+// tokenPanel renders the split as a full-width panel sized to its content.
+func tokenPanel(snap *domain.Snapshot, opts ViewOptions, width int) []string {
+	return tokenPanelHeight(snap, opts, width, 0)
+}
+
+// tokenPanelHeight renders the split as a panel, two leader pairs per row. A
+// height of zero sizes the panel to its content; a positive height pads it with
+// blank rows so it can sit flush beside a taller neighbour, exactly like the
+// credits panel. It returns nil when there is no split to show.
+func tokenPanelHeight(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
 	t := opts.Styles
 	inner := width - 4
 	if inner < 1 {
 		inner = 1
 	}
-
-	type pair struct{ label, value string }
-	pairs := make([]pair, 0, 4)
-	if snap.TokensPrompt > 0 {
-		pairs = append(pairs, pair{"Input", domain.FormatTokens(snap.TokensPrompt)})
-	}
-	if snap.TokensCompletion > 0 {
-		pairs = append(pairs, pair{"Output", domain.FormatTokens(snap.TokensCompletion)})
-	}
-	if snap.CachedTokens > 0 {
-		pairs = append(pairs, pair{"Cached", domain.FormatTokens(snap.CachedTokens)})
-	}
-	if snap.ReasoningTokens > 0 {
-		pairs = append(pairs, pair{"Reasoning", domain.FormatTokens(snap.ReasoningTokens)})
-	}
+	pairs := tokenPairs(snap)
 	if len(pairs) == 0 {
 		return nil
 	}
 
-	// Two pairs per row keeps the panel short: the split costs two rows plus its
-	// borders instead of four, leaving room for the chart and the model panel.
+	// Two pairs per row keeps the panel short, but only when the column is wide
+	// enough to hold a label and its value side by side. In the narrow half-width
+	// column of the shared row it often is not: a two-up row would run past the
+	// panel and have its value clipped, so the split falls back to one pair per
+	// row, where every value the API reported stays readable.
 	colWidth := (inner - 2) / 2
-	if colWidth < 12 {
-		colWidth = inner
+	perRow := 2
+	if colWidth < 12 || !tokenPairsFitTwoUp(pairs, colWidth) {
+		perRow, colWidth = 1, inner
 	}
-	rows := make([]string, 0, (len(pairs)+1)/2)
-	for i := 0; i < len(pairs); i += 2 {
-		left := leader(pairs[i].label, pairs[i].value, colWidth, t)
-		if i+1 < len(pairs) {
+	rows := make([]string, 0, (len(pairs)+perRow-1)/perRow)
+	for i := 0; i < len(pairs); i += perRow {
+		if perRow == 2 && i+1 < len(pairs) {
+			left := leader(pairs[i].label, pairs[i].value, colWidth, t)
 			right := leader(pairs[i+1].label, pairs[i+1].value, colWidth, t)
 			rows = append(rows, left+"  "+right)
 		} else {
-			rows = append(rows, left)
+			rows = append(rows, leader(pairs[i].label, pairs[i].value, inner, t))
 		}
 	}
-	return panel("Tokens", rows, width, len(rows)+2, t)
+	if height <= 0 {
+		return panel("Tokens", rows, width, len(rows)+2, t)
+	}
+	for len(rows) < height-2 {
+		rows = append(rows, "")
+	}
+	if len(rows) > height-2 {
+		rows = rows[:height-2]
+	}
+	return panel("Tokens", rows, width, height, t)
 }
 
 // sparkPanel renders the daily spend sparkline as a bordered panel.
@@ -332,13 +430,29 @@ func sparkPanel(snap *domain.Snapshot, opts ViewOptions, width, height int) []st
 // rows. Rows are short names, a dot leader, and an inline meter with the share
 // at the row end.
 func modelPanel(snap *domain.Snapshot, opts ViewOptions, width, limit int) []string {
+	return modelPanelWidth(snap, opts, width, limit, 0)
+}
+
+// modelPanelWidth renders the model spend breakdown at an explicit width. A
+// height of zero sizes the panel to its rows; a positive height pads it with
+// blank rows so it can sit flush beside a taller neighbour on the shared row.
+// The width is honoured here, so on a half-width column a long model name is
+// truncated by modelRow rather than overflowing into the token panel.
+func modelPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, limit, height int) []string {
 	t := opts.Styles
 	inner := width - 4
 	if inner < 1 {
 		inner = 1
 	}
 	if snap == nil || len(snap.Models) == 0 {
-		return panel("Cost by model", []string{t.Muted.Render("No model spend recorded.")}, width, 3, t)
+		msg := []string{t.Muted.Render("No model spend recorded.")}
+		if height <= 0 {
+			return panel("Cost by model", msg, width, 3, t)
+		}
+		for len(msg) < height-2 {
+			msg = append(msg, "")
+		}
+		return panel("Cost by model", msg[:maxInt(height-2, 1)], width, height, t)
 	}
 	if limit < 1 {
 		limit = 1
@@ -365,7 +479,16 @@ func modelPanel(snap *domain.Snapshot, opts ViewOptions, width, limit int) []str
 	for _, m := range models {
 		rows = append(rows, modelRow(m, total, inner, t))
 	}
-	return panel("Cost by model", rows, width, len(rows)+2, t)
+	if height <= 0 {
+		return panel("Cost by model", rows, width, len(rows)+2, t)
+	}
+	for len(rows) < height-2 {
+		rows = append(rows, "")
+	}
+	if len(rows) > height-2 {
+		rows = rows[:height-2]
+	}
+	return panel("Cost by model", rows, width, height, t)
 }
 
 // modelRow renders one model as "name ······· $2.61 ▇▇▇▇ 52%".
@@ -394,7 +517,7 @@ func modelRow(m domain.ModelUsage, total float64, width int, t Styles) string {
 		tailWidth = lipgloss.Width(tail)
 	}
 
-	nameWidth := width - tailWidth - 2
+	nameWidth := width - tailWidth - 3
 	if nameWidth < 6 {
 		nameWidth = 6
 	}

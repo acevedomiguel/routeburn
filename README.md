@@ -11,6 +11,13 @@ Updated 15:42
 │                                 │ │ Cache hit ················ 18.4% │
 ╰─────────────────────────────────╯ ╰──────────────────────────────────╯
 
+╭─┬ Cost by model ┬───────────────╮ ╭─┬ Tokens ┬───────────────────────╮
+│ claude-so... · $7.21 ▇▇▇▇░░ 58% │ │ Input ····················· 7.1M │
+│ gpt-5 ········ $3.82 ▇▇░░░░ 31% │ │ Output ···················· 1.3M │
+│ llama-4-70b ·· $1.31 ▇░░░░░ 11% │ │ Cached ···················· 1.5M │
+│                                 │ │ Reasoning ················· 480K │
+╰─────────────────────────────────╯ ╰──────────────────────────────────╯
+
 ╭─┬ Daily credit spend ┬───────────────────────── peak $1.20 · Nov 05 ─╮
 │                               ██                                     │
 │                               ██                                     │
@@ -21,12 +28,6 @@ Updated 15:42
 │      █████      █████████████████████       ██████   ██████     ████ │
 │      ███████    █████████████████████  █████████████████████████████ │
 │ ▁▁▁███████████▁▁█████████████████████▁▁█████████████████████████████ │
-╰──────────────────────────────────────────────────────────────────────╯
-
-╭─┬ Cost by model ┬────────────────────────────────────────────────────╮
-│ claude-sonnet-4 ······························· $7.21 ▇▇▇▇▇▇░░░░ 58% │
-│ gpt-5 ········································· $3.82 ▇▇▇░░░░░░░ 31% │
-│ llama-4-70b ··································· $1.31 ▇░░░░░░░░░ 11% │
 ╰──────────────────────────────────────────────────────────────────────╯
  [r] refresh  [↑↓] scroll  [?] help  [q] quit                           
 ```
@@ -165,6 +166,7 @@ storage automatically.
 | Estimated runway | Days until the balance reaches zero at the recent burn rate. |
 | Daily credit spend | One block per UTC day for the 30-day window, with the peak day named. |
 | Cost by model | Model spend for the window, highest first, top four plus `Other (remaining)`. |
+| Tokens | The prompt/completion/cached/reasoning split, from the same analytics query. |
 
 The dashboard does not render the per-key limit: it answers account credit
 questions, and a key limit is a separate scope with its own reset cycle. The
