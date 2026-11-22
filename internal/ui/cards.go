@@ -2,12 +2,10 @@ package ui
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -31,9 +29,10 @@ type ViewOptions struct {
 
 // Render draws the full dashboard. It never performs IO.
 //
-// The layout fills the alternate screen exactly: one header row, a scrolling
-// body, and the bubbles help bar pinned to the last row, so the bar never
-// floats in the middle of a tall terminal.
+// The layout fills the alternate screen exactly: a framed body plus the bubbles
+// help bar pinned to the last row, so the bar never floats mid-screen. Every
+// section is a bordered panel with its title inlaid in the top border, and the
+// panels stretch to fill the frame so no vertical space is left dead.
 func Render(snap *domain.Snapshot, opts ViewOptions) string {
 	if opts.Width <= 0 {
 		opts.Width = 80
@@ -43,104 +42,281 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 		return opts.Styles.Warning.Render(lay.Message) + "\n"
 	}
 
-	var b strings.Builder
+	// The frame occupies one row at the top and one at the bottom; the footer
+	// takes the last row of the terminal. A banner is an extra row above the
+	// frame, so it comes out of the body's budget rather than pushing the footer
+	// off the bottom of the screen.
+	bannerRows := 0
 	if opts.Banner != "" {
-		b.WriteString(opts.Styles.Banner.Render(truncate(opts.Banner, lay.ContentWidth)))
-		b.WriteString("\n\n")
+		bannerRows = 1
 	}
-
-	cards := []string{
-		creditsCard(snap, opts, lay),
-		runwayCard(snap, opts, lay),
-		last30Card(snap, opts, lay),
-	}
-
-	if lay.TwoColumn {
-		left := cards[0] + "\n" + cards[1]
-		b.WriteString(twoColumns(left, cards[2], lay.ContentWidth))
-	} else {
-		for i, c := range cards {
-			if i > 0 {
-				b.WriteString("\n")
-			}
-			b.WriteString(c)
-		}
-	}
-
-	b.WriteString("\n\n")
-	if snap != nil {
-		b.WriteString(Sparkline(snap.Daily, ChartOptions{Width: lay.ContentWidth, Styles: opts.Styles}))
-	}
-	b.WriteString(modelsCard(snap, opts, lay))
-
-	header := headerLine(snap, opts, lay)
-	footer := Footer(opts)
-
-	// Two rows are reserved: the header and the help bar. Everything else
-	// scrolls inside the viewport bubble.
-	bodyHeight := opts.Height - 2
+	bodyHeight := opts.Height - 3 - bannerRows
 	if bodyHeight < 1 {
 		bodyHeight = 1
 	}
 
-	body := b.String()
-	lines := len(strings.Split(body, "\n"))
-	maxOffset := maxInt(lines-bodyHeight, 0)
+	lines := dashboardBody(snap, opts, lay, bodyHeight)
 
-	// The viewport bubble takes over whenever the content is taller than the
-	// space between the header and the menu bar, regardless of width class.
-	if maxOffset > 0 {
-		pageSize := maxInt(bodyHeight, 1)
-		opts.Pages = (maxOffset + pageSize - 1) / pageSize
+	// Scrolling: when the composed body is taller than the space, the viewport
+	// bubble takes over and the footer gains pagination dots.
+	if len(lines) > bodyHeight {
+		maxOffset := len(lines) - bodyHeight
+		opts.Pages = (maxOffset + bodyHeight - 1) / bodyHeight
 		if opts.Pages < 2 {
 			opts.Pages = 2
 		}
-
-		vp := NewViewport(lay.ContentWidth, bodyHeight)
-		vp.SetContent(body)
 		offset := minInt(opts.Scroll, maxOffset)
-		vp.SetYOffset(offset)
-		body = vp.View()
-		opts.Page = minInt(offset/pageSize, opts.Pages-1)
-
-		// Recompute the menu bar now that the dot count is known.
-		footer = Footer(opts)
+		opts.Page = minInt(offset/bodyHeight, opts.Pages-1)
+		lines = lines[offset : offset+bodyHeight]
+	} else {
+		lines = fitLinesSlice(lines, bodyHeight)
 	}
-	return header + "\n" + fitLines(body, bodyHeight) + "\n" + footer
+
+	top := frameTop("RouteBurn", headerStatus(snap, opts), lay.Width, opts.Styles)
+	bottom := frameBottom(lay.Width, opts.Styles)
+	framed := make([]string, 0, bodyHeight+2)
+	framed = append(framed, top)
+	for _, line := range lines {
+		framed = append(framed, frameRow(line, lay.Width, opts.Styles))
+	}
+	framed = append(framed, bottom)
+
+	header := ""
+	if opts.Banner != "" {
+		header = opts.Styles.Banner.Render(truncate(opts.Banner, lay.Width)) + "\n"
+	}
+
+	footer := Footer(opts)
+	return header + strings.Join(framed, "\n") + "\n" + footer
 }
 
-// fitLines pads or trims the body so the header and footer always land on the
-// expected rows.
-func fitLines(body string, height int) string {
-	lines := strings.Split(body, "\n")
-	if len(lines) > height {
-		lines = lines[:height]
+// dashboardBody composes the interior of the frame: the credit panels, the
+// sparkline, and the model panel. It returns exactly height rows when the
+// content fits, stretching the last panel to absorb the slack.
+func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height int) []string {
+	inner := lay.Width - 2
+
+	// Vertical budget inside the frame: two panel borders per panel, plus the
+	// gap row between panels.
+	rows := make([]string, 0, height)
+
+	// Top row: credits and last-30 panels side by side. Both are three leader
+	// rows tall. Stacking them costs six rows, which at the 60x16 minimum leaves
+	// no room for the model breakdown, so the two panels always share a row.
+	if lay.TwoColumn {
+		half := (inner - 1) / 2
+		leftWidth := half
+		rightWidth := inner - 1 - leftWidth
+		leftRows := creditsPanelWidth(snap, opts, leftWidth)
+		rightRows := last30PanelWidth(snap, opts, rightWidth)
+		rows = append(rows, joinColumns(leftRows, rightRows)...)
+	} else {
+		rows = append(rows, creditsPanelWidth(snap, opts, inner)...)
+		rows = append(rows, "")
+		rows = append(rows, last30PanelWidth(snap, opts, inner)...)
 	}
-	for len(lines) < height {
-		lines = append(lines, "")
+
+	rows = append(rows, "")
+
+	// The model panel sizes to its content: its rows are the models plus the two
+	// borders. Everything left over goes to the sparkline, so a tall terminal
+	// gets a taller chart rather than a panel full of blank rows.
+	//
+	// A short terminal cannot fit both. Rather than clip a panel in half and
+	// break the frame, the model panel is dropped and the sparkline takes the
+	// whole remainder. minModelHeight is the smallest model panel worth drawing:
+	// one row plus its two borders.
+	remaining := height - len(rows)
+	if remaining < minSparkHeight+1+minModelHeight {
+		rows = append(rows, sparkPanel(snap, opts, inner, maxInt(remaining, minSparkHeight))...)
+		return rows
 	}
-	return strings.Join(lines, "\n")
+
+	modelCount := modelPanelCount(snap, remaining-minSparkHeight-1-2)
+	sparkHeight := remaining - 1 - (modelCount + 2)
+	if sparkHeight < minSparkHeight {
+		sparkHeight = minSparkHeight
+	}
+	rows = append(rows, sparkPanel(snap, opts, inner, sparkHeight)...)
+
+	rows = append(rows, "")
+	rows = append(rows, modelPanel(snap, opts, inner, modelCount)...)
+	return rows
 }
 
-// headerLine renders the single top row: the wordmark on the left and the
-// freshness status right-aligned.
-func headerLine(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
+// minModelHeight is the smallest model panel worth drawing: one row plus its
+// two borders.
+const minModelHeight = 3
+
+// minSparkHeight is the smallest usable sparkline panel: a top border, one row
+// of blocks, and a bottom border.
+const minSparkHeight = 3
+
+// modelPanelCount is how many model rows fit in the space left over after the
+// sparkline takes its minimum. It never returns zero: one row is always shown so
+// the panel never degrades into an empty box.
+func modelPanelCount(snap *domain.Snapshot, available int) int {
+	n := 1
+	if snap != nil && len(snap.Models) > 0 {
+		n = len(domain.TopModels(domain.SortModels(snap.Models), 5))
+	}
+	if available < 1 {
+		return 1
+	}
+	if n > available {
+		n = available
+	}
+	return n
+}
+
+// creditsPanelWidth renders the credits panel at an explicit width.
+func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []string {
 	t := opts.Styles
-	title := t.Title.Render("RouteBurn")
-	status := headerStatus(snap, opts)
-	if strings.TrimSpace(status) == "" {
-		return title
+	inner := width - 4
+	if inner < 1 {
+		inner = 1
+	}
+	if snap == nil {
+		return panel("Credits", []string{t.Muted.Render("loading")}, width, 3, t)
+	}
+	acct := snap.Account
+	rw := snap.Runway
+
+	runway := domain.FormatDaysRemaining(rw)
+	if d := domain.FormatDepletionDate(rw); d != "" {
+		runway += " " + d
+	}
+	runwayStyle := t.Value
+	if rw.LowConfidence {
+		runwayStyle = t.Warning
 	}
 
-	detail := t.Muted.Render(status)
-	gap := lay.Width - lipgloss.Width(title) - lipgloss.Width(status) - 2*lay.Padding
-	if gap < 1 {
-		return truncate(title+" "+status, lay.Width)
+	rows := []string{
+		leader("Remaining", domain.FormatCredits(acct.Remaining), inner, t),
+		leaderValue("Runway", runway, inner, t, runwayStyle),
 	}
-	line := strings.Repeat(" ", lay.Padding) + title + strings.Repeat(" ", gap) + detail
-	return truncate(line, lay.Width)
+	if rw.Basis == domain.BasisUnavailable {
+		rows = append(rows, leader("Daily burn", "analytics unavailable", inner, t))
+	} else if rw.DailyBurn > 0 {
+		rows = append(rows, leader("Daily burn", domain.FormatCredits(rw.DailyBurn)+"/day", inner, t))
+	}
+	return panel("Credits", rows, width, len(rows)+2, t)
 }
 
+// last30PanelWidth renders the 30-day panel at an explicit width.
+func last30PanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []string {
+	t := opts.Styles
+	inner := width - 4
+	if inner < 1 {
+		inner = 1
+	}
+	if snap == nil {
+		return panel("Last 30 days", []string{t.Muted.Render("loading")}, width, 3, t)
+	}
+	spend := 0.0
+	for _, d := range snap.Daily {
+		spend += d.CreditSpend
+	}
+	rows := []string{
+		leader("Spend", domain.FormatCredits(spend), inner, t),
+		leader("Tokens", domain.FormatTokens(snap.TotalTokens), inner, t),
+	}
+	if snap.CacheHitRate != nil {
+		rows = append(rows, leader("Cache hit", fmt.Sprintf("%.1f%%", *snap.CacheHitRate), inner, t))
+	}
+	return panel("Last 30 days", rows, width, len(rows)+2, t)
+}
+
+// sparkPanel renders the daily spend sparkline as a bordered panel.
+func sparkPanel(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
+	var daily []domain.DailyUsage
+	if snap != nil {
+		daily = snap.Daily
+	}
+	rendered := Sparkline(daily, ChartOptions{Width: width, Height: height, Styles: opts.Styles})
+	lines := strings.Split(strings.TrimSuffix(rendered, "\n"), "\n")
+	return lines
+}
+
+// modelPanel renders the model spend breakdown as a bordered panel sized to its
+// rows. Rows are short names, a dot leader, and an inline meter with the share
+// at the row end.
+func modelPanel(snap *domain.Snapshot, opts ViewOptions, width, limit int) []string {
+	t := opts.Styles
+	inner := width - 4
+	if inner < 1 {
+		inner = 1
+	}
+	if snap == nil || len(snap.Models) == 0 {
+		return panel("Cost by model", []string{t.Muted.Render("No model spend recorded.")}, width, 3, t)
+	}
+	if limit < 1 {
+		limit = 1
+	}
+
+	// A single row goes to the top spender. TopModels would fold everything into
+	// "Other (remaining)" at limit 1, which hides the biggest model behind a
+	// useless 100% row.
+	sorted := domain.SortModels(snap.Models)
+	models := sorted
+	if len(sorted) > limit {
+		if limit == 1 {
+			models = sorted[:1]
+		} else {
+			models = domain.TopModels(sorted, limit)
+		}
+	}
+	total := 0.0
+	for _, m := range models {
+		total += m.CreditSpend
+	}
+
+	rows := make([]string, 0, len(models))
+	for _, m := range models {
+		rows = append(rows, modelRow(m, total, inner, t))
+	}
+	return panel("Cost by model", rows, width, len(rows)+2, t)
+}
+
+// modelRow renders one model as "name ······· $2.61 ▇▇▇▇ 52%".
+func modelRow(m domain.ModelUsage, total float64, width int, t Styles) string {
+	name := domain.ShortModelName(m.Model)
+	spend := domain.FormatCredits(m.CreditSpend)
+	ratio := 0.0
+	if total > 0 {
+		ratio = m.CreditSpend / total
+	}
+	pct := fmt.Sprintf("%.0f%%", ratio*100)
+
+	// Fixed trailing columns: percent, meter, spend.
+	meterWidth := 10
+	if width < 40 {
+		meterWidth = 6
+	}
+	if width < 30 {
+		meterWidth = 4
+	}
+	tail := spend + " " + meter(ratio, meterWidth, t) + " " + pct
+	tailWidth := lipgloss.Width(tail)
+	if tailWidth+12 > width {
+		// Too narrow for the meter: keep the number and the share.
+		tail = spend + " " + pct
+		tailWidth = lipgloss.Width(tail)
+	}
+
+	nameWidth := width - tailWidth - 2
+	if nameWidth < 6 {
+		nameWidth = 6
+	}
+	name = truncate(name, nameWidth)
+	dots := width - lipgloss.Width(name) - tailWidth - 2
+	if dots < 1 {
+		return t.Label.Render(truncate(name+" "+spend, width))
+	}
+	return t.Label.Render(name) + " " + t.Muted.Render(strings.Repeat(boxDot, dots)) + " " + tail
+}
+
+// headerStatus renders the freshness text shown in the frame's top border.
 func headerStatus(snap *domain.Snapshot, opts ViewOptions) string {
 	when := ""
 	if snap != nil && !snap.GeneratedAt.IsZero() {
@@ -152,160 +328,13 @@ func headerStatus(snap *domain.Snapshot, opts ViewOptions) string {
 	case opts.Refreshing:
 		frame := opts.Spinner
 		if frame == "" {
-			frame = ""
+			frame = "·"
 		}
 		return frame + " Refreshing…"
 	case when != "":
 		return "Updated " + when
 	}
 	return ""
-}
-
-func creditsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
-	t := opts.Styles
-	if snap == nil {
-		return card(t, lay, "Credits remaining", t.Muted.Render("loading"))
-	}
-	acct := snap.Account
-
-	lines := []string{t.Value.Render(domain.FormatCredits(acct.Remaining))}
-	if acct.Remaining < 0 {
-		lines = append(lines, t.Warning.Render("account is over its purchased credit"))
-	}
-	return card(t, lay, "Credits remaining", strings.Join(lines, "\n"))
-}
-
-func runwayCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
-	t := opts.Styles
-	if snap == nil {
-		return card(t, lay, "Estimated runway", t.Muted.Render("loading"))
-	}
-	rw := snap.Runway
-	label := domain.FormatDaysRemaining(rw)
-	if d := domain.FormatDepletionDate(rw); d != "" {
-		label += " - " + d
-	}
-	value := t.Value.Render(label)
-	if rw.LowConfidence {
-		value = t.Warning.Render(label)
-	}
-	lines := []string{value}
-	if rw.Basis == domain.BasisUnavailable {
-		lines = append(lines, t.Muted.Render("analytics unavailable"))
-	} else if rw.DailyBurn > 0 {
-		lines = append(lines, t.Muted.Render("average "+domain.FormatCredits(rw.DailyBurn)+"/day"))
-	}
-	return card(t, lay, "Estimated runway", strings.Join(lines, "\n"))
-}
-
-func last30Card(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
-	t := opts.Styles
-	if snap == nil {
-		return card(t, lay, "Last 30 days", t.Muted.Render("loading"))
-	}
-	spend := 0.0
-	for _, d := range snap.Daily {
-		spend += d.CreditSpend
-	}
-	rows := []string{
-		t.Label.Render("Spend: ") + t.Value.Render(domain.FormatCredits(spend)),
-		t.Label.Render("Tokens: ") + t.Value.Render(domain.FormatTokens(snap.TotalTokens)),
-	}
-	return card(t, lay, "Last 30 days", strings.Join(rows, "\n"))
-}
-
-func modelsCard(snap *domain.Snapshot, opts ViewOptions, lay Layout) string {
-	t := opts.Styles
-	head := t.CardHead.Render("Cost by model")
-	if snap == nil || len(snap.Models) == 0 {
-		return head + "\n" + t.Muted.Render("No model spend recorded.")
-	}
-
-	models := make([]domain.ModelUsage, len(snap.Models))
-	copy(models, snap.Models)
-	sort.SliceStable(models, func(i, j int) bool {
-		if models[i].CreditSpend == models[j].CreditSpend {
-			return models[i].Model < models[j].Model
-		}
-		return models[i].CreditSpend > models[j].CreditSpend
-	})
-
-	show := models
-	if len(show) > 5 {
-		top := show[:4]
-		other := 0.0
-		otherTokens := int64(0)
-		for _, m := range show[4:] {
-			other += m.CreditSpend
-			otherTokens += m.Tokens
-		}
-		show = append(append([]domain.ModelUsage{}, top...), domain.ModelUsage{
-			Model:       "Other (remaining)",
-			CreditSpend: other,
-			Tokens:      otherTokens,
-		})
-	}
-
-	const spendWidth = 9
-	// Size the name column to its content instead of the full terminal width,
-	// so the spend column sits next to the model names rather than being pushed
-	// to the far edge.
-	nameWidth := lipgloss.Width("Model")
-	for _, m := range show {
-		if w := lipgloss.Width(m.Model); w > nameWidth {
-			nameWidth = w
-		}
-	}
-	// The table bubble pads every cell by one space on each side.
-	nameWidth += 2
-	if max := lay.ContentWidth - spendWidth - 2; nameWidth > max {
-		nameWidth = max
-	}
-	if nameWidth < 12 {
-		nameWidth = 12
-	}
-
-	rows := make([]table.Row, 0, len(show))
-	for _, m := range show {
-		rows = append(rows, table.Row{m.Model, domain.FormatCredits(m.CreditSpend)})
-	}
-	tbl := NewTable([]table.Column{
-		{Title: "Model", Width: nameWidth},
-		{Title: "Spend", Width: spendWidth},
-	}, rows, t)
-
-	// The token total belongs to the whole breakdown, so it is a summary line
-	// under the heading rather than a second column next to the table. Placing
-	// it beside the table interleaved two lines of totals into the first two
-	// model rows.
-	summary := t.Label.Render("Tokens ") + t.Value.Render(domain.FormatTokens(snap.TotalTokens))
-	if snap.CacheHitRate != nil {
-		summary += t.Label.Render("   Cache hit ") + t.Value.Render(fmt.Sprintf("%.1f%%", *snap.CacheHitRate))
-	}
-
-	return head + "\n" + summary + "\n" + trimTrailingSpace(tbl.View())
-}
-
-// trimTrailingSpace removes the padding the table bubble adds past the last
-// column, so rendered lines do not carry invisible trailing spaces.
-func trimTrailingSpace(view string) string {
-	lines := strings.Split(view, "\n")
-	for i, line := range lines {
-		lines[i] = strings.TrimRight(line, " ")
-	}
-	return strings.Join(lines, "\n")
-}
-
-func card(t Styles, lay Layout, title, body string) string {
-	width := lay.ContentWidth
-	var b strings.Builder
-	b.WriteString(t.CardHead.Render(title))
-	b.WriteString("\n")
-	for _, line := range strings.Split(body, "\n") {
-		b.WriteString(truncate(line, width))
-		b.WriteString("\n")
-	}
-	return strings.TrimSuffix(b.String(), "\n")
 }
 
 // twoColumns places two blocks side by side, padding both to half the width.
@@ -374,7 +403,8 @@ func padLeft(s string, width int) string {
 }
 
 // truncate cuts plain text to width, appending an ellipsis when it is cut. It
-// is escape-aware: it measures the rendered width.
+// is escape-aware: it measures the rendered width. The result is never wider
+// than width, so callers can rely on it to keep the frame's geometry exact.
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
@@ -383,8 +413,11 @@ func truncate(s string, width int) string {
 		return s
 	}
 	runes := []rune(s)
-	if len(runes) > width-1 {
-		runes = runes[:width-1]
+	if width <= 3 {
+		return string(runes[:width])
+	}
+	if len(runes) > width-3 {
+		runes = runes[:width-3]
 	}
 	return string(runes) + "..."
 }

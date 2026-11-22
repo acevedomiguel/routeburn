@@ -42,12 +42,12 @@ func TestRenderShowsCoreFacts(t *testing.T) {
 	out := Render(&snap, ViewOptions{Width: 100, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	for _, want := range []string{
 		"RouteBurn",
-		"Credits remaining",
+		"Credits",
 		"$42.10",
-		"Estimated runway",
+		"Runway",
 		"102 days",
 		"Last 30 days",
-		"anthropic/claude-sonnet-4",
+		"claude-sonnet-4",
 		"Daily credit spend",
 	} {
 		if !strings.Contains(out, want) {
@@ -63,8 +63,8 @@ func TestRenderWideUsesTwoColumns(t *testing.T) {
 	if len(strings.Split(wide, "\n")) > len(strings.Split(normal, "\n")) {
 		t.Error("two-column wide layout should not be taller than the stacked layout")
 	}
-	if !strings.Contains(wide, "Credits remaining") {
-		t.Error("wide layout lost the credits card")
+	if !strings.Contains(wide, "Credits") {
+		t.Error("wide layout lost the credits panel")
 	}
 }
 

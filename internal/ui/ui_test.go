@@ -47,15 +47,14 @@ func TestClassifyLayout(t *testing.T) {
 	}
 }
 
-func TestLayoutTwoColumnOnlyWhenWide(t *testing.T) {
-	if Classify(99, 40).TwoColumn {
-		t.Error("99 columns must not use two columns")
-	}
-	if !Classify(100, 40).TwoColumn {
-		t.Error("100 columns must use two columns")
-	}
-	if Classify(70, 40).TwoColumn {
-		t.Error("narrow layouts must stack vertically")
+// Two columns at every usable width. Stacking the credits and last-30 panels
+// costs six rows, which at the 60x16 minimum would leave no room for the model
+// breakdown.
+func TestLayoutUsesTwoColumnsAtEveryUsableWidth(t *testing.T) {
+	for _, w := range []int{60, 70, 80, 99, 100, 140} {
+		if !Classify(w, 40).TwoColumn {
+			t.Errorf("width %d must use two columns", w)
+		}
 	}
 }
 

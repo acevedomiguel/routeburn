@@ -1,7 +1,7 @@
 # RouteBurn UI redesign — btop as the reference
 
-Status: agreed direction, not yet implemented. Reference screenshot supplied by the
-user 2026-11-21 (`btop` running on macOS).
+Status: implemented. Reference screenshot supplied by the user 2026-11-21
+(`btop` running on macOS).
 
 ## What makes btop look good
 
@@ -64,16 +64,23 @@ user 2026-11-21 (`btop` running on macOS).
 - footer on the last rendered row;
 - no line exceeds the terminal width;
 - `--no-color` output contains zero escape sequences;
-- the sparkline stays exactly 2 rows.
+- the sparkline is a bordered panel and grows with the terminal, never below
+  three rows (top border, one row of blocks, bottom border).
 
 `internal/ui/columns_test.go` requires model spend values (`$7.21`, `$3.82`, `$1.31`)
 to stay visible at 100/110/120/140 columns.
 
-## Suggested order of work
+## Shipped
 
-1. `panel()` + `leader()` helpers with tests (pure string functions, easy to verify).
-2. Rebuild the outer frame + header strip; keep the footer untouched.
-3. Convert the four cards to two equal-height panels of leader rows.
-4. Sparkline caption to the same row as the blocks.
-5. `ShortModelName` in `internal/domain` + model panel with inline meters.
-6. Re-run the full suite; re-capture a real render and compare against the mockup above.
+1. `panel()` and `leader()` helpers in `internal/ui/panel.go`, with tests.
+2. Outer frame plus header strip rebuilt; the bubbles help bar kept as the footer.
+3. Credits and last-30 as two equal-height leader panels, side by side at every
+   usable width (stacking costs six rows and loses the model panel at 60x16).
+4. Sparkline caption on the same row as the blocks; the chart grows with the
+   terminal instead of staying at three rows.
+5. `ShortModelName` in `internal/domain` plus a model panel with inline meters.
+6. Full suite green; renders captured at 60x20, 72x24, 80x30, 100x40 and 140x50.
+
+Note on the footer: the body is fitted to the frame at every supported size, so
+pagination dots are unreachable in practice. The dots code stays as a safety net
+for a terminal shorter than the 16-row minimum.

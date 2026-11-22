@@ -18,16 +18,20 @@ func sparkDaily(spend ...float64) []domain.DailyUsage {
 	return out
 }
 
-// The sparkline must be short: one row of blocks plus one caption row. The old
-// five-row ASCII plot was rejected.
-func TestSparklineIsTwoRows(t *testing.T) {
+// The sparkline is a bordered panel three rows tall: a title border, one row of
+// blocks with the caption inline, and a bottom border. The old five-row ASCII
+// plot was rejected.
+func TestSparklineIsAThreeRowPanel(t *testing.T) {
 	out := Sparkline(sparkDaily(0, 0.5, 1.2, 0.3), ChartOptions{Width: 80, Styles: NewStyles(false)})
 	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("sparkline must be exactly 2 rows, got %d:\n%s", len(lines), out)
+	if len(lines) != 3 {
+		t.Fatalf("sparkline must be exactly 3 rows, got %d:\n%s", len(lines), out)
 	}
 	if !strings.Contains(lines[0], "Daily credit spend") {
-		t.Errorf("first row must be the section head, got %q", lines[0])
+		t.Errorf("first row must be the panel title, got %q", lines[0])
+	}
+	if !strings.ContainsAny(lines[1], "▁▂▃▄▅▆▇█") {
+		t.Errorf("second row must carry the blocks, got %q", lines[1])
 	}
 }
 

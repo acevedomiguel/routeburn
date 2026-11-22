@@ -4,8 +4,6 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -44,14 +42,6 @@ func NewHelp(s Styles, width int) help.Model {
 	return h
 }
 
-// NewViewport builds the scrolling body bubble. It is always initialised so
-// scroll offset and clamping are handled by bubbles, not by hand.
-func NewViewport(width, height int) viewport.Model {
-	v := viewport.New(width, height)
-	v.MouseWheelEnabled = true
-	return v
-}
-
 // NewPaginator builds the bubbles paginator used for the scroll dots in the
 // bottom bar, mirroring the bubbles list example.
 func NewPaginator(pages, page int) paginator.Model {
@@ -63,29 +53,6 @@ func NewPaginator(pages, page int) paginator.Model {
 	p.TotalPages = pages
 	p.Page = page
 	return p
-}
-
-// NewTable builds the bubbles table used for the model breakdown. The table
-// bubble owns column alignment, truncation, and header styling.
-func NewTable(columns []table.Column, rows []table.Row, s Styles) table.Model {
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(rows),
-	)
-
-	styles := table.DefaultStyles()
-	styles.Header = s.CardHead
-	styles.Cell = s.Base
-	styles.Selected = s.Base
-	t.SetStyles(styles)
-
-	width := 0
-	for _, c := range columns {
-		width += c.Width
-	}
-	t.SetWidth(width)
-	t.SetHeight(len(rows) + 1)
-	return t
 }
 
 // NewSpinner builds the refresh spinner shown in the header.

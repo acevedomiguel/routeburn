@@ -28,11 +28,11 @@ func NewKeyMap() KeyMap {
 		),
 		Down: key.NewBinding(
 			key.WithKeys("j", "down"),
-			key.WithHelp("[j/k]", "scroll"),
+			key.WithHelp("[↑↓]", "scroll"),
 		),
 		Up: key.NewBinding(
 			key.WithKeys("k", "up"),
-			key.WithHelp("[k]", "up"),
+			key.WithHelp("[↑]", "up"),
 		),
 		PageDown: key.NewBinding(
 			key.WithKeys("pgdown"),

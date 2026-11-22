@@ -3,23 +3,30 @@
 **A read-only terminal dashboard for OpenRouter credits, spend, and runway.**
 
 ```
-  RouteBurn                                                                          Updated 15:42
-Credits remaining                                Last 30 days
-$42.10                                           Spend: $11.29
-Estimated runway                                 Tokens: 8.4M
-102 days - ~Mar 03
-average $0.41/day
-
-Daily credit spend
-▁▁▂▃▂▁▁▄▆▃▂▂▆█▅▂▁▂▂▄▃▃▂▄▃▂▁▂▃▂ peak $1.20 on Nov 05
-Cost by model
-Tokens 8.4M   Cache hit 18.4%
-Model                      Spend
-anthropic/claude-sonnet-4  $7.21
-openai/gpt-5               $3.82
-meta/llama-4-70b           $1.31
-
- [r] refresh  [j/k] scroll  [?] help  [q] quit
+╭─┤ RouteBurn ├──────────────────────────────────────── Updated 15:42 ─╮
+│╭─┤ Credits ├────────────────────╮ ╭─┤ Last 30 days ├────────────────╮│
+││ Remaining ············· $42.10 │ │ Spend ·················· $11.29 ││
+││ Runway ······ 102 days ~Mar 03 │ │ Tokens ··················· 8.4M ││
+││ Daily burn ········· $0.41/day │ │ Cache hit ··············· 18.4% ││
+│╰────────────────────────────────╯ ╰─────────────────────────────────╯│
+│                                                                      │
+│╭─┤ Daily credit spend ├─────────────────────── peak $1.20 · Nov 05 ─╮│
+││                              ██                                    ││
+││                   ██       ████                                    ││
+││                   ██       ██████                                  ││
+││                 ████       ██████         ██       ██              ││
+││        ██       ██████     ██████         ███████  ████       ██   ││
+││      ██████     ████████████████████  ████████████████████  ██████ ││
+││ ▁▁▁███████████▁▁████████████████████▁▁████████████████████████████ ││
+│╰────────────────────────────────────────────────────────────────────╯│
+│                                                                      │
+│╭─┤ Cost by model ├──────────────────────────────────────────────────╮│
+││ claude-sonnet-4 ····························· $7.21 ▇▇▇▇▇▇░░░░ 58% ││
+││ gpt-5 ······································· $3.82 ▇▇▇░░░░░░░ 31% ││
+││ llama-4-70b ································· $1.31 ▇░░░░░░░░░ 11% ││
+│╰────────────────────────────────────────────────────────────────────╯│
+╰──────────────────────────────────────────────────────────────────────╯
+ [r] refresh  [↑↓] scroll  [?] help  [q] quit
 ```
 
 Illustrative rendering with placeholder values. The dashboard shows only your
@@ -35,15 +42,17 @@ current burn rate.
 ## Features
 
 - Built on [Bubbles](https://github.com/charmbracelet/bubbles): the bottom bar is
-  a `help` bubble fed by a `key` KeyMap, the scroll offset is a `viewport`, the
-  model breakdown is a `table`, pagination dots come from `paginator`, and the
-  refresh indicator is a `spinner`.
+  a `help` bubble fed by a `key` KeyMap, the refresh indicator is a `spinner`,
+  and pagination dots come from `paginator`.
 - Full-screen alternate-screen layout with the menu bar pinned to the last row.
+- Every section is a bordered panel with its title inlaid in the top border, and
+  the panels stretch to fill the frame so no vertical space is left dead.
 - Remaining account credit, as a single figure: the purchased total and a
   proportion bar are deliberately not shown.
-- 30 daily UTC buckets rendered as a one-row block sparkline with the peak day.
-- Model spend for the same 30 days, ranked with token totals and an
-  `Other (remaining)` rollup.
+- 30 daily UTC buckets rendered as a block sparkline with the peak day in the
+  panel caption.
+- Model spend for the same 30 days, ranked with a short display name, an inline
+  proportional meter, and an `Other (remaining)` rollup.
 - Runway estimate from the previous 30 complete UTC days of spend.
 - Cached snapshot on startup, explicitly labelled with its age when stale.
 - Automatic refresh every 10 seconds by default, plus a throttled manual refresh.
@@ -297,8 +306,9 @@ Cached data can be stale. A cached runway estimate is never presented as live.
 | `Esc` | Close the help overlay, or quit when it is closed |
 | `q` / `Ctrl+C` | Quit |
 
-The menu bar on the last row always lists the keys that actually work, and
-gains pagination dots when the dashboard scrolls.
+The menu bar on the last row always lists the keys that actually work. The body
+is fitted to the frame at every supported size, so scrolling only engages on a
+terminal shorter than the 16-row minimum.
 
 When OpenRouter asks RouteBurn to slow down, both automatic and manual refreshes
 wait until the requested time has passed and the footer explains why.

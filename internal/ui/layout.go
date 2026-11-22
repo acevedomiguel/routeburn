@@ -61,6 +61,12 @@ func Classify(width, height int) Layout {
 	if l.ContentWidth < 1 {
 		l.ContentWidth = width
 	}
-	l.TwoColumn = l.Class == ClassWide
+
+	// Two columns at every usable width. Stacking the credits and last-30 panels
+	// costs six rows, which at the minimum 60x16 terminal is the difference
+	// between showing the model breakdown and dropping it. Side by side they cost
+	// three rows and every fact survives. The design mockup uses two columns in a
+	// 66-wide frame for the same reason.
+	l.TwoColumn = true
 	return l
 }

@@ -6,6 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
+
+	"github.com/acevedomiguel/routeburn/internal/domain"
 )
 
 // The dashboard must fill the alternative screen exactly: a header, a body, a
@@ -163,19 +165,25 @@ func TestFooterSpansTheFullWidth(t *testing.T) {
 	}
 }
 
-// When the body overflows, the bar gains paginator dots showing where you are.
-func TestFooterShowsPaginationDotsWhenOverflowing(t *testing.T) {
+// The body is fitted to the frame at every legal size, so it never overflows and
+// the footer never shows pagination dots. A long model list is clipped to fit
+// rather than scrolling the whole dashboard off screen.
+func TestFooterHasNoPaginationDotsWhenBodyFits(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	tall := Render(&snap, ViewOptions{Width: 80, Height: 16, Styles: plainStyles(), Now: fixedNow()})
-	last := strings.Split(tall, "\n")[15]
-	if !strings.Contains(last, "●") && !strings.Contains(last, "○") {
-		t.Errorf("overflowing layout has no paginator dots: %q", last)
-	}
-
-	big := Render(&snap, ViewOptions{Width: 140, Height: 60, Styles: plainStyles(), Now: fixedNow()})
-	rows := strings.Split(big, "\n")
-	if dots := strings.Contains(rows[len(rows)-1], "●"); dots {
-		t.Error("single-screen layout should not show pagination dots")
+	snap.Models = append(snap.Models,
+		domain.ModelUsage{Model: "google/gemini-3-pro", CreditSpend: 0.9},
+		domain.ModelUsage{Model: "meta/llama-4-8b", CreditSpend: 0.4},
+		domain.ModelUsage{Model: "mistral/large-3", CreditSpend: 0.2},
+	)
+	for _, h := range []int{16, 20, 40} {
+		for _, w := range []int{60, 80, 140} {
+			out := Render(&snap, ViewOptions{Width: w, Height: h, Styles: plainStyles(), Now: fixedNow()})
+			rows := strings.Split(out, "\n")
+			last := rows[len(rows)-1]
+			if strings.Contains(last, "●") || strings.Contains(last, "○") {
+				t.Errorf("%dx%d: fitted body should not show pagination dots: %q", w, h, last)
+			}
+		}
 	}
 }
 
@@ -187,17 +195,20 @@ func TestPaginatorUsesBubbles(t *testing.T) {
 	}
 }
 
-// The model breakdown is a bubbles table: it renders a header row and keeps
-// the spend column intact on every width.
-func TestModelsCardUsesBubblesTable(t *testing.T) {
+// The model breakdown is a bordered panel with leader rows: short model names,
+// dot leaders, and an inline meter. The vendor prefix is stripped.
+func TestModelsCardShowsShortNames(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
 	for _, w := range []int{80, 100, 140} {
 		out := Render(&snap, ViewOptions{Width: w, Height: 40, Styles: plainStyles(), Now: fixedNow()})
-		if !strings.Contains(out, "Model") || !strings.Contains(out, "Spend") {
-			t.Fatalf("width %d: model table header missing", w)
+		if !strings.Contains(out, "Cost by model") {
+			t.Fatalf("width %d: model panel title missing", w)
 		}
-		if !strings.Contains(out, "anthropic/claude-sonnet-4") {
-			t.Errorf("width %d: top model missing from the table", w)
+		if !strings.Contains(out, "claude-sonnet-4") {
+			t.Errorf("width %d: top model missing from the panel", w)
+		}
+		if strings.Contains(out, "anthropic/claude-sonnet-4") {
+			t.Errorf("width %d: vendor prefix should be stripped", w)
 		}
 	}
 }

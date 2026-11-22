@@ -3,6 +3,7 @@ package domain
 import (
 	"math"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -127,6 +128,40 @@ func FormatTokens(v int64) string {
 		return "-" + out
 	}
 	return out
+}
+
+// ShortModelName strips the vendor prefix and a trailing release date from a
+// model identifier so a dashboard row can show the name that identifies it.
+// "deepseek/deepseek-v4.1-flash-20260910" becomes "deepseek-v4.1-flash".
+// Names without a vendor prefix or date suffix are returned unchanged.
+func ShortModelName(model string) string {
+	name := model
+	if i := strings.Index(name, "/"); i >= 0 {
+		if i < len(name)-1 {
+			name = name[i+1:]
+		} else {
+			name = name[:i]
+		}
+	}
+	if len(name) > 9 && name[len(name)-9] == '-' && isAllDigits(name[len(name)-8:]) {
+		name = name[:len(name)-9]
+	}
+	if name == "" {
+		return model
+	}
+	return name
+}
+
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // FormatDaysRemaining renders the headline runway value.
