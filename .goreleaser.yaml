@@ -68,3 +68,12 @@ homebrew_casks:
       branch: main
     commit_msg_template: "chore: update routeburn to {{ .Tag }}"
     skip_upload: "{{ if not .Env.HOMEBREW_TAP_TOKEN }}true{{ end }}"
+    # RouteBurn has no Apple Developer certificate, so the binary is only
+    # ad-hoc signed. macOS quarantines the download and Gatekeeper kills the
+    # unsigned binary on first run. Clear the quarantine flag after staging so
+    # `routeburn` works straight after `brew install --cask`.
+    custom_block: |
+      postflight do
+        system_command "/usr/bin/xattr",
+                       args: ["-dr", "com.apple.quarantine", "#{staged_path}/routeburn"]
+      end
