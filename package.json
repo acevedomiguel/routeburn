@@ -4,7 +4,7 @@
   "private": true,
   "description": "Release tooling for RouteBurn. RouteBurn itself is a Go application and is not published to npm.",
   "engines": {
-    "node": "^22.22.2 || >=24.15"
+    "node": ">=26.13"
   },
   "scripts": {
     "release": "semantic-release",
@@ -21,6 +21,6 @@
     "@semantic-release/git": "11.0.1",
     "@semantic-release/release-notes-generator": "14.1.1",
     "conventional-changelog-conventionalcommits": "9.3.1",
-    "semantic-release": "25.0.9"
+    "semantic-release": "26.0.1"
   }
 }
