@@ -25,6 +25,11 @@ type ViewOptions struct {
 	Pages       int
 	Refreshing  bool
 	Spinner     string
+
+	// TableOffset is the first visible day when the table has focus. It is
+	// ignored while the body owns the scroll keys.
+	TableOffset  int
+	TableFocused bool
 }
 
 // Render draws the full dashboard. It never performs IO.
@@ -141,7 +146,7 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 		// the shared row is as tall as whichever needs more. The model count is
 		// capped so the sparkline always keeps its minimum below.
 		tokens := tokenPanelHeight(snap, opts, rightWidth, 0)
-		modelCount := modelPanelCount(snap, remaining-minSparkHeight-4, leftWidth-4)
+		modelCount := modelPanelCount(snap, remaining-minTableHeight-4, leftWidth-4)
 		rowHeight := modelCount + 2
 		if len(tokens) > rowHeight {
 			rowHeight = len(tokens)
@@ -151,18 +156,15 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 		// the same row, matching the credits/last-30 pattern. A split that cannot
 		// fit beside the sparkline's minimum is left to the stacked arrangement
 		// below rather than clipped.
-		if len(tokens) > 0 && rowHeight <= remaining-2-minSparkHeight {
+		if len(tokens) > 0 && rowHeight <= remaining-2-minTableHeight {
 			rows = append(rows, "")
 			leftRows := modelPanelWidth(snap, opts, leftWidth, modelCount, rowHeight)
 			rightRows := tokenPanelHeight(snap, opts, rightWidth, rowHeight)
 			rows = append(rows, joinColumns(leftRows, rightRows)...)
 			rows = append(rows, "")
 
-			sparkHeight := height - len(rows)
-			if sparkHeight < minSparkHeight {
-				sparkHeight = minSparkHeight
-			}
-			rows = append(rows, sparkPanel(snap, opts, inner, sparkHeight)...)
+			tableHeight := fitTableHeight(height-len(rows), dayCount(snap))
+			rows = append(rows, dailyTablePanel(snap, opts, inner, tableHeight)...)
 			return rows
 		}
 	}
@@ -189,17 +191,15 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 	// whole remainder. minModelHeight is the smallest model panel worth drawing:
 	// one row plus its two borders.
 	remaining := height - len(rows)
-	if remaining < minSparkHeight+1+minModelHeight {
-		rows = append(rows, sparkPanel(snap, opts, inner, maxInt(remaining, minSparkHeight))...)
+	if remaining < minTableHeight+1+minModelHeight {
+		tableHeight := fitTableHeight(remaining, dayCount(snap))
+		rows = append(rows, dailyTablePanel(snap, opts, inner, tableHeight)...)
 		return rows
 	}
 
-	modelCount := modelPanelCount(snap, remaining-minSparkHeight-1-2, inner-4)
-	sparkHeight := remaining - 1 - (modelCount + 2)
-	if sparkHeight < minSparkHeight {
-		sparkHeight = minSparkHeight
-	}
-	rows = append(rows, sparkPanel(snap, opts, inner, sparkHeight)...)
+	modelCount := modelPanelCount(snap, remaining-minTableHeight-1-2, inner-4)
+	tableHeight := fitTableHeight(remaining-1-(modelCount+2), dayCount(snap))
+	rows = append(rows, dailyTablePanel(snap, opts, inner, tableHeight)...)
 
 	rows = append(rows, "")
 	rows = append(rows, modelPanel(snap, opts, inner, modelCount)...)
@@ -210,9 +210,8 @@ func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height i
 // two borders.
 const minModelHeight = 3
 
-// minSparkHeight is the smallest usable sparkline panel: a top border, one row
-// of blocks, and a bottom border.
-const minSparkHeight = 3
+// minTableHeight lives in dailytable.go: a top border, a column header, one
+// day, a separator, and the total row.
 
 // minModelNameWidth is the narrowest model name worth rendering. Shorter than
 // this and the row is a column of ellipses that tells the reader nothing.
@@ -415,15 +414,73 @@ func tokenPanelHeight(snap *domain.Snapshot, opts ViewOptions, width, height int
 	return panel("Tokens", rows, width, height, t)
 }
 
-// sparkPanel renders the daily spend sparkline as a bordered panel.
-func sparkPanel(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
+// dailyTablePanel renders the daily spend table as a bordered panel. The
+// offset is clamped here so a stale scroll from the app can never ask for a
+// window past the end of the series.
+func dailyTablePanel(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
 	var daily []domain.DailyUsage
 	if snap != nil {
 		daily = snap.Daily
 	}
-	rendered := Sparkline(daily, ChartOptions{Width: width, Height: height, Styles: opts.Styles})
-	lines := strings.Split(strings.TrimSuffix(rendered, "\n"), "\n")
-	return lines
+	return DailyTable(daily, DailyTableOptions{
+		Width:   width,
+		Height:  height,
+		Offset:  opts.TableOffset,
+		Styles:  opts.Styles,
+		Focused: opts.TableFocused,
+	})
+}
+
+// dayCount is the number of days the snapshot carries, or 0 when there is no
+// snapshot yet.
+func dayCount(snap *domain.Snapshot) int {
+	if snap == nil {
+		return 0
+	}
+	return len(snap.Daily)
+}
+
+// TableWindow is how many day rows the table shows at the current view size.
+// The app needs it to page the offset by a screen at a time.
+//
+// It counts the rows out of a real render rather than recomputing the panel's
+// share of the height: the election in dashboardBody depends on the series
+// length, the model count, and the layout branch, and a second copy of that
+// arithmetic would silently disagree with what is on screen. Rendering here is
+// pure string work, and this runs once per keypress.
+func TableWindow(snap *domain.Snapshot, opts ViewOptions) int {
+	opts.TableOffset = 0
+	lines := strings.Split(Render(snap, opts), "\n")
+	for i, line := range lines {
+		if !strings.Contains(line, boxTopLeft+boxHorizontal+boxTick+" Daily spend") {
+			continue
+		}
+		// Rows after the header run until the separator rule that sits above
+		// the pinned total.
+		count := 0
+		for _, row := range lines[i+2:] {
+			if strings.Contains(row, strings.Repeat(boxHorizontal, 8)) {
+				return maxInt(count, 1)
+			}
+			if strings.Contains(row, boxBottomLeft) {
+				return maxInt(count, 1)
+			}
+			count++
+		}
+	}
+	return 1
+}
+
+// neededTableHeight is the tallest the panel can usefully be: a border, a
+// header, every day, a separator, a total row, and the closing border.
+func neededTableHeight(days int) int { return days + 5 }
+
+// fitTableHeight clamps the panel between its minimum and what the series can
+// fill. It absorbs slack only while there are days to show, so a tall terminal
+// shows more data rather than a panel full of blank rows; any surplus is left
+// to Render's tail padding.
+func fitTableHeight(available, days int) int {
+	return minInt(maxInt(available, minTableHeight), maxInt(neededTableHeight(days), minTableHeight))
 }
 
 // modelPanel renders the model spend breakdown as a bordered panel sized to its

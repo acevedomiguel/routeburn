@@ -52,7 +52,7 @@ func TestRenderShowsCoreFacts(t *testing.T) {
 		"102 days",
 		"Last 30 days",
 		"claude-sonnet-4",
-		"Daily credit spend",
+		"Daily spend",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("render is missing %q", want)

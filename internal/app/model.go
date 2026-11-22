@@ -42,6 +42,10 @@ type Model struct {
 	notice      string
 	helpVisible bool
 	scroll      int
+	// tableOffset is the daily table's own scroll position, in days from the
+	// newest. It survives losing focus so Tab back lands where you left off.
+	tableOffset  int
+	tableFocused bool
 
 	gen int
 

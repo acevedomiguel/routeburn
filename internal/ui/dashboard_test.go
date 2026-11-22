@@ -294,7 +294,10 @@ func TestDetailBoundaryDecidesTheSharedRow(t *testing.T) {
 // panel spans the full width instead of sharing a row.
 func TestShortDashboardDropsTokensAndSpansModelFullWidth(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	for _, h := range []int{16, 20, 24, 27} {
+	// 16 is excluded: two border rows, the credits block, a gap, the table panel
+	// and its gap come to more than 14 body rows, so there is no room for the
+	// model panel at all. That case is covered by TestTinyTerminalDropsTheModelPanel.
+	for _, h := range []int{20, 24, 27} {
 		out := Render(&snap, ViewOptions{Width: 120, Height: h, Styles: plainStyles(), Now: fixedNow()})
 		if strings.Contains(out, "╭─┬ Tokens") {
 			t.Errorf("height %d: token panel must be dropped", h)
@@ -316,7 +319,7 @@ func TestSingleColumnKeepsStackedOrder(t *testing.T) {
 	body := strings.Join(lines, "\n")
 
 	tokens := strings.Index(body, "╭─┬ Tokens")
-	spark := strings.Index(body, "╭─┬ Daily credit spend")
+	spark := strings.Index(body, "╭─┬ Daily spend")
 	models := strings.Index(body, "╭─┬ Cost by model")
 	if tokens < 0 || spark < 0 || models < 0 {
 		t.Fatalf("missing panel: tokens=%d spark=%d models=%d\n%s", tokens, spark, models, body)

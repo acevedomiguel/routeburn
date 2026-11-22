@@ -14,6 +14,7 @@ import (
 	"github.com/acevedomiguel/routeburn/internal/cache"
 	"github.com/acevedomiguel/routeburn/internal/domain"
 	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
 func testModel(t *testing.T, opts testModelOptions) *Model {
@@ -479,5 +480,87 @@ func TestFetchErrorSentinelMissingManagementKeyTriggersSetup(t *testing.T) {
 	if m.State() != StateFatalError {
 		// Missing credentials mid-flight is fatal for the session unless setup runs.
 		t.Fatalf("state = %v", m.State())
+	}
+}
+
+// Tab hands the scroll keys to the daily table and back without disturbing the
+// body's own scroll position.
+func TestTabTogglesTableFocus(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	if m.tableFocused {
+		t.Fatal("table must start unfocused")
+	}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(*Model)
+	if !m.tableFocused {
+		t.Fatal("Tab must focus the table")
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(*Model)
+	if m.tableFocused {
+		t.Fatal("a second Tab must return focus to the body")
+	}
+}
+
+// While the table has focus, j and k move the table offset and leave the body
+// scroll alone; the reverse holds when focus is on the body.
+func TestTableFocusRoutesScrollKeys(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	snap := ui.SampleSnapshotAt(fixedNow())
+	m.snapshot = &snap
+	m.helpVisible = false
+	m.tableFocused = true
+
+	window := ui.TableWindow(m.snapshot, m.viewOptions())
+	if window < 1 {
+		t.Fatalf("table window = %d, want at least 1", window)
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = updated.(*Model)
+	if m.tableOffset != 1 {
+		t.Fatalf("focused j: tableOffset = %d, want 1", m.tableOffset)
+	}
+	if m.scroll != 0 {
+		t.Fatalf("focused j must not move the body: scroll = %d", m.scroll)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = updated.(*Model)
+	if m.tableOffset != 0 {
+		t.Fatalf("focused k: tableOffset = %d, want 0", m.tableOffset)
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = updated.(*Model)
+	if m.tableOffset != 0 {
+		t.Fatal("table offset must not go negative")
+	}
+
+	// Past the end of the series the offset clamps instead of scrolling into
+	// blank rows.
+	for i := 0; i < 100; i++ {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		m = updated.(*Model)
+	}
+	want := len(m.snapshot.Daily) - window
+	if m.tableOffset != want {
+		t.Fatalf("tableOffset = %d, want clamp at %d", m.tableOffset, want)
+	}
+
+	// Unfocused, the same keys move the body instead.
+	m.tableFocused = false
+	m.tableOffset = 0
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = updated.(*Model)
+	if m.scroll != 1 || m.tableOffset != 0 {
+		t.Fatalf("unfocused j: scroll = %d tableOffset = %d", m.scroll, m.tableOffset)
+	}
+}
+
+// The footer advertises the table key, so a user can discover it without help.
+func TestFooterAdvertisesTheTableKey(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	if view := m.View(); !strings.Contains(view, "table") {
+		t.Errorf("footer must mention the table key:\n%s", view)
 	}
 }

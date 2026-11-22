@@ -115,18 +115,35 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.spinner.Tick)
 		}
 		return m, nil
+	case "tab":
+		// Tab hands the scroll keys to the daily table and back. The body keeps
+		// its own offset, so switching focus never loses a scroll position.
+		m.tableFocused = !m.tableFocused
+		return m, nil
 	case "j", "down":
+		if m.tableFocused {
+			return m.moveTable(1)
+		}
 		m.scroll++
 		return m, nil
 	case "k", "up":
+		if m.tableFocused {
+			return m.moveTable(-1)
+		}
 		if m.scroll > 0 {
 			m.scroll--
 		}
 		return m, nil
 	case "pgdown":
+		if m.tableFocused {
+			return m.moveTable(ui.TableWindow(m.snapshot, m.viewOptions()))
+		}
 		m.scroll += maxInt(m.height-4, 1)
 		return m, nil
 	case "pgup":
+		if m.tableFocused {
+			return m.moveTable(-ui.TableWindow(m.snapshot, m.viewOptions()))
+		}
 		m.scroll -= maxInt(m.height-4, 1)
 		if m.scroll < 0 {
 			m.scroll = 0
@@ -135,6 +152,44 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// moveTable scrolls the daily table by delta days, clamped to the series. It
+// stops one row short of the end so the pinned total row stays meaningful.
+func (m *Model) moveTable(delta int) (tea.Model, tea.Cmd) {
+	if m.snapshot == nil {
+		return m, nil
+	}
+	rows := ui.TableWindow(m.snapshot, m.viewOptions())
+	maxOffset := maxInt(len(m.snapshot.Daily)-rows, 0)
+	next := m.tableOffset + delta
+	if next < 0 {
+		next = 0
+	}
+	if next > maxOffset {
+		next = maxOffset
+	}
+	m.tableOffset = next
+	return m, nil
+}
+
+// viewOptions is the struct Render builds, reused wherever the view geometry
+// has to be recomputed outside a render pass.
+func (m *Model) viewOptions() ui.ViewOptions {
+	return ui.ViewOptions{
+		Width:        m.width,
+		Height:       m.height,
+		Styles:       ui.NewStyles(m.cfg.ColorsEnabled()),
+		Now:          m.now(),
+		Cached:       m.cached,
+		CacheAge:     m.cacheAge,
+		Banner:       m.errorBanner,
+		HelpVisible:  m.helpVisible,
+		Scroll:       m.scroll,
+		Refreshing:   m.refreshing,
+		TableOffset:  m.tableOffset,
+		TableFocused: m.tableFocused,
+	}
 }
 
 // handleSnapshot merges a fetch result, preserving usable data on failure.
@@ -240,18 +295,10 @@ func (m *Model) View() string {
 		})
 	}
 
-	return ui.Render(m.snapshot, ui.ViewOptions{
-		Width:      m.width,
-		Height:     m.height,
-		Styles:     styles,
-		Now:        m.now(),
-		Cached:     m.cached,
-		CacheAge:   m.cacheAge,
-		Banner:     m.errorBanner,
-		Scroll:     m.scroll,
-		Refreshing: m.refreshing,
-		Spinner:    m.spinner.View(),
-	})
+	opts := m.viewOptions()
+	opts.Styles = styles
+	opts.Spinner = m.spinner.View()
+	return ui.Render(m.snapshot, opts)
 }
 
 // ColorsEnabled resolves the color setting for the model.

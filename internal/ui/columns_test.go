@@ -141,7 +141,7 @@ func TestCostByModelAndTokensShareARow(t *testing.T) {
 	creditsRow, creditsCol := panelCol(t, lines, "╭─┬ Credits")
 	modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
 	tokensRow, tokensCol := panelCol(t, lines, "╭─┬ Tokens")
-	sparkRow, _ := panelCol(t, lines, "╭─┬ Daily credit spend")
+	sparkRow, _ := panelCol(t, lines, "╭─┬ Daily spend")
 	last30Row, last30Col := panelCol(t, lines, "╭─┬ Last 30 days")
 	if last30Row != creditsRow {
 		t.Errorf("credits/last-30 must share the top row: credits=%d last30=%d", creditsRow, last30Row)
@@ -199,7 +199,7 @@ func TestShortTerminalDropsTokensAndKeepsModelFullWidth(t *testing.T) {
 		t.Errorf("short terminal must not draw the token panel:\n%s", out)
 	}
 	lines := strings.Split(out, "\n")
-	_, sparkCol := panelCol(t, lines, "╭─┬ Daily credit spend")
+	_, sparkCol := panelCol(t, lines, "╭─┬ Daily spend")
 	_, modelCol := panelCol(t, lines, "╭─┬ Cost by model")
 	if modelCol != sparkCol {
 		t.Errorf("model panel column = %d, want full width at %d", modelCol, sparkCol)
