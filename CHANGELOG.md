@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/acevedomiguel/routeburn/compare/v1.0.1...v1.1.0) (2026-11-22)
+
+### Features
+
+* put Cost by model and Tokens on the same row ([#13](https://github.com/acevedomiguel/routeburn/issues/13)) ([26910bc](https://github.com/acevedomiguel/routeburn/commit/26910bc58f841d250478d8e52e01e189fc3032d8)), closes [#12](https://github.com/acevedomiguel/routeburn/issues/12)
+
 ## [1.0.1](https://github.com/acevedomiguel/routeburn/compare/v1.0.0...v1.0.1) (2026-11-22)
 
 ### Bug Fixes
