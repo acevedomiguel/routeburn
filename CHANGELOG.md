@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/acevedomiguel/routeburn/compare/v1.0.0...v1.0.1) (2026-11-22)
+
+### Bug Fixes
+
+* **release:** clear the macOS quarantine flag in the generated cask ([#9](https://github.com/acevedomiguel/routeburn/issues/9)) ([74dd9f8](https://github.com/acevedomiguel/routeburn/commit/74dd9f8c06ae96d2245cf4b371ed4dcbc6380b1e))
+
 ## 1.0.0 (2026-11-22)
 
 ### Features
