@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/x/term"
+	tea "charm.land/bubbletea/v2"
+	"github.com/mattn/go-isatty"
 
 	"github.com/acevedomiguel/routeburn/internal/app"
 	"github.com/acevedomiguel/routeburn/internal/config"
@@ -112,15 +112,15 @@ func runTUI(rt *runtime, stdin io.Reader, stdout, stderr io.Writer) int {
 			Management: rt.creds.Management,
 			APIKey:     rt.creds.APIKey,
 		},
-		API:   rt.client,
-		Cache: rt.cache,
-		Now:   func() time.Time { return time.Now().UTC() },
+		API:     rt.client,
+		Cache:   rt.cache,
+		Now:     func() time.Time { return time.Now().UTC() },
+		Version: version,
 	})
 
 	program := tea.NewProgram(model,
 		tea.WithInput(stdin),
 		tea.WithOutput(stdout),
-		tea.WithAltScreen(),
 	)
 	if _, err := program.Run(); err != nil {
 		fmt.Fprintf(stderr, "routeburn: %v\n", err)
@@ -203,7 +203,7 @@ func isTerminal(r io.Reader) bool {
 	if !ok {
 		return false
 	}
-	return term.IsTerminal(file.Fd())
+	return isatty.IsTerminal(file.Fd())
 }
 
 func setupWelcome() string {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
@@ -65,7 +65,7 @@ func TestQuitCancelsInFlightRequests(t *testing.T) {
 		t.Fatal("fetch never started")
 	}
 
-	_, quitCmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	_, quitCmd := m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	if _, ok := quitCmd().(tea.QuitMsg); !ok {
 		t.Fatal("q must quit")
 	}
@@ -107,7 +107,7 @@ func TestCtrlCCancelsInFlightRequests(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 
 	select {
 	case <-cancelled:

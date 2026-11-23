@@ -1,6 +1,7 @@
 # Local worktrees and agent scratch
 /.worktrees/
 /.superpowers/
+/docs/superpowers/
 
 # Build output
 /routeburn
@@ -21,3 +22,5 @@ management-token
 api-key
 config.local.yaml
 snapshot.json
+lighthouse-report/
+test-results/

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RouteBurn — OpenRouter credit runway in your terminal</title>
+<meta name="description" content="RouteBurn is a read-only terminal dashboard that shows your OpenRouter credit balance, last 30 days of spend, and an estimated credit runway at the current burn rate.">
+<link rel="canonical" href="https://acevedomiguel.github.io/routeburn/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="RouteBurn — OpenRouter credit runway in your terminal">
+<meta property="og:description" content="A read-only terminal dashboard for OpenRouter credits, spend, and runway.">
+<meta property="og:url" content="https://acevedomiguel.github.io/routeburn/">
+<meta property="og:image" content="https://acevedomiguel.github.io/routeburn/assets/images/social-preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0b0e11">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; media-src 'self'; worker-src 'none'">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<script src="assets/js/site.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<header class="site-header">
+  <nav class="nav" aria-label="Main">
+    <a class="wordmark" href="#top"><span class="wordmark-mark" aria-hidden="true">╭─╮</span> routeburn</a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#quickstart">Quick start</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com/acevedomiguel/routeburn">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <h1 id="hero-title">Know when your OpenRouter <span class="accent-warm">credits</span> will run out.</h1>
+    <p class="lede">RouteBurn is a read-only terminal dashboard for tracking your OpenRouter credit
+    balance, the last 30 days of spend, and an estimated credit runway at the current burn rate —
+    without opening a browser.</p>
+    <p class="hero-actions">
+      <a class="button button-primary" href="#install">Install RouteBurn</a>
+      <a class="button button-secondary" href="https://github.com/acevedomiguel/routeburn">View on GitHub</a>
+    </p>
+  </section>
+
+  <section class="preview" aria-labelledby="preview-title">
+    <h2 id="preview-title" class="visually-hidden">Terminal preview</h2>
+    <figure class="terminal-figure">
+      <picture>
+        <source srcset="assets/images/terminal-demo.avif" type="image/avif">
+        <source srcset="assets/images/terminal-demo.webp" type="image/webp">
+        <img src="assets/images/terminal-demo.webp" width="1280" height="800"
+             alt="RouteBurn terminal dashboard with a left sidebar of panels — credits with remaining balance, runway and daily burn, last-30-days totals, token split, and cost by model — beside a full-height daily spend table whose rows carry heat-coloured inline bars from green to red.">
+      </picture>
+      <figcaption>Synthetic example data — no real account figures.</figcaption>
+    </figure>
+  </section>
+
+  <section id="features" aria-labelledby="features-title">
+    <h2 id="features-title">Features</h2>
+    <ul class="feature-list">
+      <li><strong>Credit balance and recent cost monitoring.</strong> Remaining account credit as a single figure, plus spend, requests, tokens, and cache-hit rate for the last 30 days.</li>
+      <li><strong>Daily spend table.</strong> 30 daily UTC buckets as a scrollable table — date, spend, tokens, requests, and cache hit rate, newest first, with a pinned total row and an inline per-day meter heat-coloured green to red by share of the peak day.</li>
+      <li><strong>Cost by model.</strong> Model spend for the same window, ranked with an inline proportional meter and an <code>Other (remaining)</code> rollup.</li>
+      <li><strong>Credit-runway estimate.</strong> Days until the balance reaches zero at the recent burn rate, with low-confidence and edge cases labelled instead of guessed.</li>
+      <li><strong>Built on Charm v2.</strong> The help bar, refresh spinner, pagination dots, and the daily table are Charm components in a full-screen alternate-screen layout; on wide terminals the panels stack in a sidebar beside the table.</li>
+      <li><strong>Offline snapshot cache.</strong> The last successful refresh renders immediately on startup, explicitly labelled with its age.</li>
+      <li><strong>Scriptable.</strong> <code>routeburn --json</code> prints a versioned snapshot for scripts and dashboards.</li>
+      <li><strong>Polite API usage.</strong> Configurable refresh interval with a 10-second minimum, plus server-directed throttling when OpenRouter asks to slow down.</li>
+    </ul>
+  </section>
+
+  <section id="install" aria-labelledby="install-title">
+    <h2 id="install-title">Installation</h2>
+
+    <h3>Homebrew (macOS and Linux)</h3>
+    <div class="command">
+      <pre tabindex="0"><code>brew tap acevedomiguel/routeburn
+brew install --cask routeburn
+routeburn --version</code></pre>
+    </div>
+    <p>The cask installs a prebuilt binary. Because the tap is a third-party tap, Homebrew asks you
+    to trust it once with <code>brew trust acevedomiguel/routeburn</code>.</p>
+
+    <h3>Go</h3>
+    <div class="command">
+      <pre tabindex="0"><code>go install github.com/acevedomiguel/routeburn/cmd/routeburn@latest</code></pre>
+    </div>
+
+    <h3>Prebuilt binaries</h3>
+    <p>Every release publishes Linux, macOS, and Windows archives plus a <code>checksums.txt</code>
+    on the <a href="https://github.com/acevedomiguel/routeburn/releases/latest">GitHub Releases page</a>.
+    Verify a download with <code>sha256sum -c checksums.txt --ignore-missing</code>.</p>
+  </section>
+
+  <section id="quickstart" aria-labelledby="quickstart-title">
+    <h2 id="quickstart-title">Quick start</h2>
+    <p>RouteBurn needs an OpenRouter <strong>Management API key</strong> for account credits and
+    analytics. Create one at
+    <a href="https://openrouter.ai/settings/management_keys">openrouter.ai/settings/management_keys</a>,
+    then run:</p>
+    <div class="command">
+      <pre tabindex="0"><code>routeburn setup     # masked prompt, validates the key, stores it, writes config
+routeburn           # open the dashboard</code></pre>
+    </div>
+    <p><code>setup</code> never echoes the key and stores nothing until OpenRouter accepts it. Keys
+    go to the OS keyring, or a <code>0600</code> fallback file inside a <code>0700</code> directory
+    when the keyring is disabled. Environment variables (<code>ROUTEBURN_MANAGEMENT_KEY</code>, and
+    optionally <code>ROUTEBURN_API_KEY</code>) work too and are never copied into storage.</p>
+    <p>Configuration lives in the platform config directory — print the exact path with
+    <code>routeburn config path</code>. The refresh interval defaults to 10 seconds, which is also
+    the minimum; shorter positive values are rejected, and <code>0</code> disables automatic
+    refresh.</p>
+  </section>
+
+  <section id="runway" aria-labelledby="runway-title">
+    <h2 id="runway-title">Understanding credit runway</h2>
+    <p>Runway answers “how long does the balance last at the current burn rate?” It is an
+    <strong>estimate, not a guarantee</strong> — a sudden change in usage invalidates it
+    immediately.</p>
+    <div class="command">
+      <pre tabindex="0"><code>daily_burn     = spend over the previous 30 complete UTC days / 30
+days_remaining = remaining credits / daily_burn
+depletion_date = start of today + ceil(days_remaining) days</code></pre>
+    </div>
+    <p>The window deliberately excludes the current partial day, so a dashboard opened at 02:00
+    cannot mistake two hours of spend for a whole day. Every non-numeric situation is labelled
+    instead of guessed:</p>
+    <table>
+      <thead>
+        <tr><th scope="col">Situation</th><th scope="col">Displayed</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Balance at or below zero</td><td><code>0 days</code>, with a top-up warning when negative</td></tr>
+        <tr><td>No spend in the window</td><td><code>No recent spend</code></td></tr>
+        <tr><td>Analytics unavailable</td><td><code>Unavailable</code></td></tr>
+        <tr><td>Estimate beyond 100 years</td><td><code>Beyond horizon</code> (flagged low confidence)</td></tr>
+        <tr><td>Fewer than seven active days</td><td>Numeric estimate, flagged low confidence</td></tr>
+      </tbody>
+    </table>
+    <p>Account runway is also not the same thing as a per-key limit reset; the dashboard answers
+    account credit questions, and per-key limits are a separate scope.</p>
+  </section>
+
+  <section id="security" aria-labelledby="security-title">
+    <h2 id="security-title">Security and privacy</h2>
+    <ul class="feature-list">
+      <li>This website is static. It never sees, requests, or transmits your OpenRouter keys or account data — the application is separate and runs entirely on your machine.</li>
+      <li>RouteBurn talks only to <code>https://openrouter.ai/api/v1</code> and writes only to its own config and cache. TLS is required.</li>
+      <li>Authorization headers, tokens, and response bodies are never logged, rendered, or cached; error messages are redacted before display.</li>
+      <li>The cache stores aggregates only, never credentials or raw responses.</li>
+      <li>RouteBurn only reads data: no inference requests, no purchases, no key rotation or revocation.</li>
+    </ul>
+    <p>To report a vulnerability, see
+    <a href="https://github.com/acevedomiguel/routeburn/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+  </section>
+
+  <section id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title">FAQ</h2>
+
+    <h3>Is RouteBurn affiliated with OpenRouter?</h3>
+    <p>No. RouteBurn is an independent open-source project and is not an official OpenRouter client.</p>
+
+    <h3>Does this website see my token?</h3>
+    <p>No. The site is static pages served by GitHub Pages. It has no forms, no scripts that make
+    network requests, and no credential flow of any kind.</p>
+
+    <h3>How often does the app refresh?</h3>
+    <p>Every 10 seconds by default, which is also the minimum interval. Set
+    <code>refresh_interval</code> in the configuration file to a longer duration, or to
+    <code>0</code> to disable automatic refresh; manual refresh with <code>r</code> stays available
+    and is throttled.</p>
+
+    <h3>How is runway calculated?</h3>
+    <p>Average daily burn over the previous 30 complete UTC days, divided into the remaining
+    balance. It is an estimate with labelled edge cases — see
+    <a href="#runway">Understanding credit runway</a>.</p>
+
+    <h3>Where is configuration stored?</h3>
+    <p>In the platform config directory — <code>~/.config/routeburn/config.yaml</code> on Linux,
+    <code>~/Library/Application Support/routeburn/config.yaml</code> on macOS,
+    <code>%AppData%\routeburn\config.yaml</code> on Windows — honoring
+    <code>XDG_CONFIG_HOME</code> when set. Run <code>routeburn config path</code> to print the exact
+    location.</p>
+
+    <h3>Can I use it without Homebrew?</h3>
+    <p>Yes. Install with <code>go install</code> or download a prebuilt archive from the
+    <a href="https://github.com/acevedomiguel/routeburn/releases/latest">releases page</a>.</p>
+  </section>
+
+  <section id="contribute" aria-labelledby="contribute-title">
+    <h2 id="contribute-title">Open source and contributing</h2>
+    <p>RouteBurn is open source under the
+    <a href="https://github.com/acevedomiguel/routeburn/blob/main/LICENSE">MIT license</a>.
+    Contributions are welcome — start with
+    <a href="https://github.com/acevedomiguel/routeburn/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>,
+    browse the <a href="https://github.com/acevedomiguel/routeburn/issues">issue tracker</a>, and
+    read the <a href="https://github.com/acevedomiguel/routeburn/blob/main/CODE_OF_CONDUCT.md">code of conduct</a>
+    before opening a pull request. Release notes live on the
+    <a href="https://github.com/acevedomiguel/routeburn/releases">releases page</a>.</p>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p><strong>routeburn</strong> ·
+    <a href="https://github.com/acevedomiguel/routeburn">GitHub</a> ·
+    <a href="https://github.com/acevedomiguel/routeburn/blob/main/LICENSE">MIT license</a>
+  </p>
+  <p>An independent open-source project. Not affiliated with OpenRouter.</p>
+</footer>
+
+</body>
+</html>

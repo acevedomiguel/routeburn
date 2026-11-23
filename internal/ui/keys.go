@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/charmbracelet/bubbles/key"
+	"charm.land/bubbles/v2/key"
 )
 
 // KeyMap holds every binding the dashboard understands. It satisfies the
@@ -16,12 +16,57 @@ type KeyMap struct {
 	Help     key.Binding
 	Close    key.Binding
 	Quit     key.Binding
+	Tab      key.Binding
+}
+
+// OverlayKeyMap describes only the keys available while Help is open.
+type OverlayKeyMap struct {
+	Scroll key.Binding
+	Page   key.Binding
+	Close  key.Binding
+	Quit   key.Binding
+}
+
+// NewOverlayKeyMap builds the contextual footer shown beneath the Help popup.
+func NewOverlayKeyMap() OverlayKeyMap {
+	return OverlayKeyMap{
+		Scroll: key.NewBinding(
+			key.WithKeys("j", "k", "up", "down"),
+			key.WithHelp("[↑↓]", "scroll"),
+		),
+		Page: key.NewBinding(
+			key.WithKeys("pgup", "pgdown"),
+			key.WithHelp("[pgup/pgdn]", "page"),
+		),
+		Close: key.NewBinding(
+			key.WithKeys("esc", "?", "q"),
+			key.WithHelp("[esc/?/q]", "close"),
+		),
+		Quit: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("[ctrl+c]", "quit"),
+		),
+	}
+}
+
+// ShortHelp is the one-line Help popup footer.
+func (k OverlayKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Scroll, k.Page, k.Close, k.Quit}
+}
+
+// FullHelp satisfies help.KeyMap; the popup footer uses ShortHelp.
+func (k OverlayKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
 }
 
 // NewKeyMap builds the default bindings. Only keys the app actually handles are
 // listed, so the footer can never advertise a feature that does not exist.
 func NewKeyMap() KeyMap {
 	return KeyMap{
+		Tab: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("[tab]", "table"),
+		),
 		Refresh: key.NewBinding(
 			key.WithKeys("r"),
 			key.WithHelp("[r]", "refresh"),
@@ -59,13 +104,13 @@ func NewKeyMap() KeyMap {
 
 // ShortHelp is the one-line footer, in render order.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Refresh, k.Down, k.Help, k.Quit}
+	return []key.Binding{k.Refresh, k.Down, k.Tab, k.Help, k.Quit}
 }
 
 // FullHelp is the grouped overlay. SetUp remains the same as the footer.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Refresh, k.Down, k.Help},
+		{k.Refresh, k.Down, k.Tab, k.Help},
 		{k.Up, k.PageUp, k.PageDown},
 		{k.Close, k.Quit},
 	}

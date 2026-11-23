@@ -1,10 +1,10 @@
 package ui
 
 import (
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/paginator"
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/paginator"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/lipgloss/v2"
 )
 
 // helpStyles adapts the terminal palette to the bubbles help bubble.
@@ -35,7 +35,7 @@ func helpStyles(s Styles) help.Styles {
 // NewHelp builds the bubbles help bubble used for the bottom bar and overlay.
 func NewHelp(s Styles, width int) help.Model {
 	h := help.New()
-	h.Width = width
+	h.SetWidth(width)
 	h.ShortSeparator = "  "
 	h.FullSeparator = "   "
 	h.Styles = helpStyles(s)

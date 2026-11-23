@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
@@ -132,16 +132,18 @@ func panelBottom(t *testing.T, lines []string, startRow, startCol int) int {
 }
 
 // issue #12: on a tall terminal the model panel and the token split share one
-// row, placed between the credits/last-30 row and the daily sparkline.
+// row, placed between the credits/last-30 row and the daily table. Pinned at
+// 90 columns: at 100+ the sidebar arrangement takes over (see
+// TestWideLayoutPutsTheTableBesideThePanels).
 func TestCostByModelAndTokensShareARow(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	out := Render(&snap, ViewOptions{Width: 120, Height: 40, Styles: plainStyles(), Now: fixedNow()})
+	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
 	creditsRow, creditsCol := panelCol(t, lines, "╭─┬ Credits")
 	modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
 	tokensRow, tokensCol := panelCol(t, lines, "╭─┬ Tokens")
-	sparkRow, _ := panelCol(t, lines, "╭─┬ Daily credit spend")
+	sparkRow, _ := panelCol(t, lines, "╭─┬ Daily spend")
 	last30Row, last30Col := panelCol(t, lines, "╭─┬ Last 30 days")
 	if last30Row != creditsRow {
 		t.Errorf("credits/last-30 must share the top row: credits=%d last30=%d", creditsRow, last30Row)
@@ -174,7 +176,8 @@ func TestCostByModelAndTokensShareARow(t *testing.T) {
 // panel's, exactly like the credits/last-30 pattern.
 func TestSharedRowPanelsEndOnTheSameRow(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	out := Render(&snap, ViewOptions{Width: 120, Height: 40, Styles: plainStyles(), Now: fixedNow()})
+	// 90 columns: at 100+ the sidebar stacks these panels instead.
+	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
 	modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
@@ -199,7 +202,7 @@ func TestShortTerminalDropsTokensAndKeepsModelFullWidth(t *testing.T) {
 		t.Errorf("short terminal must not draw the token panel:\n%s", out)
 	}
 	lines := strings.Split(out, "\n")
-	_, sparkCol := panelCol(t, lines, "╭─┬ Daily credit spend")
+	_, sparkCol := panelCol(t, lines, "╭─┬ Daily spend")
 	_, modelCol := panelCol(t, lines, "╭─┬ Cost by model")
 	if modelCol != sparkCol {
 		t.Errorf("model panel column = %d, want full width at %d", modelCol, sparkCol)

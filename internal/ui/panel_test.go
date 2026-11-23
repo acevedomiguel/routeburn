@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Every panel row must be exactly width columns wide: the frame only lines up
@@ -156,25 +156,47 @@ func TestJoinColumnsAlignsRows(t *testing.T) {
 	}
 }
 
-// The status row carries the freshness text and no app name: the outer frame is
-// gone, so nothing repeats the wordmark inside the app.
-func TestStatusLineCarriesStatusWithoutWordmark(t *testing.T) {
+// The freshness status sits in the Credits panel's border caption slot, so the
+// dashboard opens with panels rather than a floating status line.
+func TestStatusSitsInTheCreditsBorderCaption(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	got := StatusLine(&snap, ViewOptions{Styles: plainStyles(), Now: fixedNow()}, 60)
-	if width := lipgloss.Width(got); width != 60 {
-		t.Errorf("status line is %d wide, want 60: %q", width, got)
+	out := Render(&snap, ViewOptions{Width: 80, Height: 30, Styles: plainStyles(), Now: fixedNow()})
+	lines := strings.Split(out, "\n")
+	if !strings.Contains(lines[0], "╭") {
+		t.Errorf("the dashboard must open with a panel, not a floating status line: %q", lines[0])
 	}
 	// The clock is rendered in the machine's local timezone, so the expectation
 	// is computed the same way rather than hard-coded: the test must pass in any
 	// TZ.
 	want := "Updated " + fixedNow().In(time.Local).Format("15:04")
-	if !strings.Contains(got, want) {
-		t.Errorf("status line must carry %q: %q", want, got)
+	found := false
+	for _, l := range lines {
+		if strings.Contains(l, "╭─┬ Credits") {
+			found = true
+			if !strings.Contains(l, want) {
+				t.Errorf("credits border must carry %q: %q", want, l)
+			}
+			if strings.Contains(l, "RouteBurn") {
+				t.Errorf("credits border must not repeat the app name: %q", l)
+			}
+		}
 	}
-	if strings.Contains(got, "RouteBurn") {
-		t.Errorf("status line must not repeat the app name: %q", got)
+	if !found {
+		t.Fatalf("no credits panel:\n%s", out)
 	}
-	if strings.Contains(got, "╭") || strings.Contains(got, "│") {
-		t.Errorf("status line must not draw a frame border: %q", got)
+}
+
+// Cached and refreshing states use the same caption slot.
+func TestStatusCaptionCoversCachedAndRefreshing(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+
+	cached := Render(&snap, ViewOptions{Width: 120, Height: 40, Styles: plainStyles(), Now: fixedNow(), Cached: true, CacheAge: 2*time.Hour + 14*time.Minute})
+	if !strings.Contains(cached, "Cached data - updated 2h 14m ago") {
+		t.Errorf("cached status missing:\n%s", cached)
+	}
+
+	refreshing := Render(&snap, ViewOptions{Width: 120, Height: 40, Styles: plainStyles(), Now: fixedNow(), Refreshing: true, Spinner: "·"})
+	if !strings.Contains(refreshing, "Refreshing…") {
+		t.Errorf("refreshing status missing:\n%s", refreshing)
 	}
 }

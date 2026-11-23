@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
+	"charm.land/bubbles/v2/spinner"
 	"github.com/acevedomiguel/routeburn/internal/ui"
-	"github.com/charmbracelet/bubbles/spinner"
 )
 
 // Update implements tea.Model.
@@ -23,7 +23,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 
 	case cacheLoadedMsg:
@@ -74,7 +74,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKey handles every key binding.
-func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
 	if key == "ctrl+c" {
@@ -83,9 +83,18 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.helpVisible {
-		if key == "esc" || key == "?" || key == "q" {
+		switch key {
+		case "esc", "?", "q":
 			m.helpVisible = false
-			return m, nil
+			m.helpScroll = 0
+		case "j", "down":
+			m.scrollHelp(1)
+		case "k", "up":
+			m.scrollHelp(-1)
+		case "pgdown":
+			m.scrollHelp(maxInt(m.height-5, 1))
+		case "pgup":
+			m.scrollHelp(-maxInt(m.height-5, 1))
 		}
 		return m, nil
 	}
@@ -96,6 +105,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "?":
 		m.helpVisible = true
+		m.helpScroll = 0
 		return m, nil
 	case "esc":
 		// Esc dismisses the overlay when it is open, but with the dashboard in
@@ -115,18 +125,35 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.spinner.Tick)
 		}
 		return m, nil
+	case "tab":
+		// Tab hands the scroll keys to the daily table and back. The body keeps
+		// its own offset, so switching focus never loses a scroll position.
+		m.tableFocused = !m.tableFocused
+		return m, nil
 	case "j", "down":
+		if m.tableFocused {
+			return m.moveTable(1)
+		}
 		m.scroll++
 		return m, nil
 	case "k", "up":
+		if m.tableFocused {
+			return m.moveTable(-1)
+		}
 		if m.scroll > 0 {
 			m.scroll--
 		}
 		return m, nil
 	case "pgdown":
+		if m.tableFocused {
+			return m.moveTable(ui.TableWindow(m.snapshot, m.viewOptions()))
+		}
 		m.scroll += maxInt(m.height-4, 1)
 		return m, nil
 	case "pgup":
+		if m.tableFocused {
+			return m.moveTable(-ui.TableWindow(m.snapshot, m.viewOptions()))
+		}
 		m.scroll -= maxInt(m.height-4, 1)
 		if m.scroll < 0 {
 			m.scroll = 0
@@ -135,6 +162,63 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// scrollHelp moves only the popup viewport, clamped to its wrapped content.
+func (m *Model) scrollHelp(delta int) {
+	limit := ui.HelpScrollLimit(m.viewOptions())
+	current := m.helpScroll
+	if current > limit {
+		current = limit
+	}
+	next := current + delta
+	if next < 0 {
+		next = 0
+	}
+	if next > limit {
+		next = limit
+	}
+	m.helpScroll = next
+}
+
+// moveTable scrolls the daily table by delta days, clamped to the series. It
+// stops one row short of the end so the pinned total row stays meaningful.
+func (m *Model) moveTable(delta int) (tea.Model, tea.Cmd) {
+	if m.snapshot == nil {
+		return m, nil
+	}
+	rows := ui.TableWindow(m.snapshot, m.viewOptions())
+	maxOffset := maxInt(len(m.snapshot.Daily)-rows, 0)
+	next := m.tableOffset + delta
+	if next < 0 {
+		next = 0
+	}
+	if next > maxOffset {
+		next = maxOffset
+	}
+	m.tableOffset = next
+	return m, nil
+}
+
+// viewOptions is the struct Render builds, reused wherever the view geometry
+// has to be recomputed outside a render pass.
+func (m *Model) viewOptions() ui.ViewOptions {
+	return ui.ViewOptions{
+		Width:        m.width,
+		Height:       m.height,
+		Styles:       ui.NewStyles(m.cfg.ColorsEnabled()),
+		Now:          m.now(),
+		Cached:       m.cached,
+		CacheAge:     m.cacheAge,
+		Banner:       m.errorBanner,
+		Version:      m.version,
+		HelpVisible:  m.helpVisible,
+		HelpScroll:   m.helpScroll,
+		Scroll:       m.scroll,
+		Refreshing:   m.refreshing,
+		TableOffset:  m.tableOffset,
+		TableFocused: m.tableFocused,
+	}
 }
 
 // handleSnapshot merges a fetch result, preserving usable data on failure.
@@ -215,43 +299,45 @@ func maxInt(a, b int) int {
 	return b
 }
 
-// View implements tea.Model. It is pure rendering.
-func (m *Model) View() string {
+// View implements tea.Model. The alternate screen is requested on the view
+// itself; bubbletea v2 dropped the tea.WithAltScreen option.
+func (m *Model) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
+}
+
+// render produces the frame. It is pure rendering.
+func (m *Model) render() string {
 	styles := ui.NewStyles(m.cfg.ColorsEnabled())
+	opts := m.viewOptions()
+	opts.Styles = styles
+	opts.Spinner = m.spinner.View()
 
-	if m.helpVisible {
-		return ui.HelpTextAt(styles, m.width)
-	}
-
+	var background string
 	switch m.state {
 	case StateSetup:
-		return ui.SetupView(ui.SetupOptions{
+		background = ui.SetupView(ui.SetupOptions{
 			Width:  m.width,
 			Height: m.height,
 			Styles: styles,
 			Banner: m.errorBanner,
 		})
 	case StateFatalError:
-		return ui.FatalView(ui.FatalOptions{
+		background = ui.FatalView(ui.FatalOptions{
 			Width:  m.width,
 			Height: m.height,
 			Styles: styles,
 			Reason: m.errorBanner,
 		})
+	default:
+		background = ui.Render(m.snapshot, opts)
 	}
 
-	return ui.Render(m.snapshot, ui.ViewOptions{
-		Width:      m.width,
-		Height:     m.height,
-		Styles:     styles,
-		Now:        m.now(),
-		Cached:     m.cached,
-		CacheAge:   m.cacheAge,
-		Banner:     m.errorBanner,
-		Scroll:     m.scroll,
-		Refreshing: m.refreshing,
-		Spinner:    m.spinner.View(),
-	})
+	if m.helpVisible {
+		return ui.HelpOverlay(background, opts)
+	}
+	return background
 }
 
 // ColorsEnabled resolves the color setting for the model.

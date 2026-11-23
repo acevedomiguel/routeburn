@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/acevedomiguel/routeburn/internal/domain"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 )
 
 func plainStyles() Styles { return NewStyles(false) }
@@ -52,7 +51,7 @@ func TestRenderShowsCoreFacts(t *testing.T) {
 		"102 days",
 		"Last 30 days",
 		"claude-sonnet-4",
-		"Daily credit spend",
+		"Daily spend",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("render is missing %q", want)
@@ -73,7 +72,6 @@ func TestRenderWideUsesTwoColumns(t *testing.T) {
 }
 
 func TestRenderLinesFitWidth(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.Ascii)
 	snapshot := SampleSnapshotAt(fixedNow())
 	s := NewStyles(true)
 	for _, w := range []int{60, 72, 80, 100, 140} {
@@ -179,6 +177,20 @@ func TestFooterOnlyAdvertisesImplementedKeys(t *testing.T) {
 	}
 }
 
+func TestFooterReflectsHelpOverlayKeys(t *testing.T) {
+	footer := Footer(ViewOptions{Styles: plainStyles(), Width: 100, HelpVisible: true})
+	for _, want := range []string{"scroll", "close", "quit"} {
+		if !strings.Contains(footer, want) {
+			t.Errorf("Help footer missing %q: %q", want, footer)
+		}
+	}
+	for _, suspended := range []string{"refresh", "table"} {
+		if strings.Contains(footer, suspended) {
+			t.Errorf("Help footer advertises suspended dashboard action %q: %q", suspended, footer)
+		}
+	}
+}
+
 func TestHelpTextListsBindings(t *testing.T) {
 	s := plainStyles()
 	help := HelpText(s)
@@ -186,5 +198,130 @@ func TestHelpTextListsBindings(t *testing.T) {
 		if !strings.Contains(help, bind.Action) {
 			t.Errorf("help missing %q", bind.Action)
 		}
+	}
+}
+
+func TestHelpTextIncludesAboutRouteBurn(t *testing.T) {
+	help := HelpText(plainStyles())
+	for _, want := range []string{
+		"About RouteBurn",
+		"Version",
+		"dev",
+		"MIT license",
+		"https://github.com/acevedomiguel/routeburn",
+		"Miguel Angel Acevedo",
+		"Cloud Architect and DevOps Engineer",
+		"Hong Kong",
+		"https://acevedomiguel.com/contact",
+	} {
+		if !strings.Contains(help, want) {
+			t.Errorf("help about section is missing %q:\n%s", want, help)
+		}
+	}
+}
+
+func TestHelpOverlayPreservesTerminalGeometry(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	for _, styles := range []Styles{plainStyles(), NewStyles(true)} {
+		for _, size := range []struct{ width, height int }{{60, 16}, {72, 24}, {100, 40}, {140, 60}} {
+			opts := ViewOptions{
+				Width: size.width, Height: size.height, Styles: styles,
+				Now: fixedNow(), Version: "1.2.3", HelpVisible: true,
+			}
+			background := Render(&snap, opts)
+			out := HelpOverlay(background, opts)
+			lines := strings.Split(out, "\n")
+			if got := len(lines); got != size.height {
+				t.Errorf("%dx%d overlay rendered %d lines, want %d", size.width, size.height, got, size.height)
+			}
+			for i, line := range lines {
+				if got := lipgloss.Width(line); got > size.width {
+					t.Errorf("%dx%d overlay line %d is %d columns wide", size.width, size.height, i, got)
+				}
+			}
+			last := lines[len(lines)-1]
+			if !strings.Contains(last, "scroll") {
+				t.Errorf("%dx%d overlay footer is missing popup scrolling: %q", size.width, size.height, last)
+			}
+			for _, suspended := range []string{"refresh", "table"} {
+				if strings.Contains(last, suspended) {
+					t.Errorf("%dx%d overlay footer advertises suspended action %q: %q", size.width, size.height, suspended, last)
+				}
+			}
+			for _, corner := range []string{"╭", "╮", "╰", "╯"} {
+				if !strings.Contains(out, corner) {
+					t.Errorf("%dx%d overlay is missing rounded corner %q", size.width, size.height, corner)
+				}
+			}
+			if !styles.Enabled && strings.Contains(out, "\x1b[") {
+				t.Errorf("%dx%d no-color overlay contains ANSI escapes", size.width, size.height)
+			}
+		}
+	}
+}
+
+func TestHelpOverlayIsCentered(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	opts := ViewOptions{Width: 100, Height: 40, Styles: plainStyles(), Now: fixedNow(), Version: "1.2.3", HelpVisible: true}
+	out := HelpOverlay(Render(&snap, opts), opts)
+	lines := strings.Split(out, "\n")
+	marker := "╭─┬ RouteBurn help"
+	top := -1
+	left := 0
+	popupWidth := 0
+	for i, line := range lines {
+		start := strings.Index(line, marker)
+		if start < 0 {
+			continue
+		}
+		top = i
+		left = lipgloss.Width(line[:start])
+		right := strings.Index(line[start:], "╮")
+		if right < 0 {
+			t.Fatalf("Help popup has no top-right corner: %q", line)
+		}
+		popupWidth = lipgloss.Width(line[start : start+right+len("╮")])
+		break
+	}
+	if top < 0 {
+		t.Fatalf("Help popup title not found:\n%s", out)
+	}
+	rightMargin := opts.Width - left - popupWidth
+	if difference := left - rightMargin; difference < -1 || difference > 1 {
+		t.Errorf("Help popup is not horizontally centered: left=%d right=%d", left, rightMargin)
+	}
+
+	bottomBorder := strings.Repeat(" ", left) + "╰" + strings.Repeat("─", popupWidth-2) + "╯"
+	bottom := -1
+	for i := top + 1; i < len(lines); i++ {
+		if strings.Contains(lines[i], bottomBorder) {
+			bottom = i
+			break
+		}
+	}
+	if bottom < 0 {
+		t.Fatalf("Help popup bottom border not found:\n%s", out)
+	}
+	bottomMargin := opts.Height - bottom - 1
+	if difference := top - bottomMargin; difference < -1 || difference > 1 {
+		t.Errorf("Help popup is not vertically centered: top=%d bottom=%d", top, bottomMargin)
+	}
+}
+
+func TestHelpOverlayClampsScrolling(t *testing.T) {
+	snap := SampleSnapshotAt(fixedNow())
+	opts := ViewOptions{Width: 60, Height: 16, Styles: plainStyles(), Now: fixedNow(), Version: "1.2.3", HelpVisible: true}
+	background := Render(&snap, opts)
+	top := HelpOverlay(background, opts)
+	negative := opts
+	negative.HelpScroll = -10
+	if got := HelpOverlay(background, negative); got != top {
+		t.Error("negative Help scrolling must clamp to the top")
+	}
+	bottom := opts
+	bottom.HelpScroll = 10000
+	out := HelpOverlay(background, bottom)
+	if !strings.Contains(out, "https://acevedomiguel.com/contact") {
+		t.Fatalf("excessive Help scrolling must clamp to the bottom:\n%s", out)
 	}
 }

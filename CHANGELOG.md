@@ -1,3 +1,21 @@
+## [1.3.0](https://github.com/acevedomiguel/routeburn/compare/v1.2.0...v1.3.0) (2026-11-22)
+
+### Features
+
+* heat-colour the daily table and mark the tab focus ([d05f15b](https://github.com/acevedomiguel/routeburn/commit/d05f15b0e78013626ed29f38a2604355cd9dccd1))
+* replace the daily sparkline with a scrollable daily table ([95b5e11](https://github.com/acevedomiguel/routeburn/commit/95b5e1160687a3656ebc37df6e42676368bfb2f9))
+* stack the small panels in a sidebar beside the daily table ([349bf9d](https://github.com/acevedomiguel/routeburn/commit/349bf9db56ea09142b9193653a5fca1f02b7a744))
+
+### Bug Fixes
+
+* keep coloured spend values right-aligned and finish the v2 import move ([3b0b47b](https://github.com/acevedomiguel/routeburn/commit/3b0b47b7fd4e2a0ba49b4a891a5414494ed386a8))
+
+## [1.2.0](https://github.com/acevedomiguel/routeburn/compare/v1.1.1...v1.2.0) (2026-11-22)
+
+### Features
+
+* add static project website with GitHub Pages deployment ([#16](https://github.com/acevedomiguel/routeburn/issues/16)) ([428d541](https://github.com/acevedomiguel/routeburn/commit/428d54180ba8907df10c112efb267b9e413a2885))
+
 ## [1.1.1](https://github.com/acevedomiguel/routeburn/compare/v1.1.0...v1.1.1) (2026-11-22)
 
 ### Bug Fixes
