@@ -108,32 +108,43 @@ jobs:
     steps:
       - name: Install and test published cask
         run: |
+          set -euo pipefail
           brew tap acevedomiguel/routeburn
           # The tap is third-party, so Homebrew refuses to load the cask until it
           # is trusted explicitly.
           brew trust --tap acevedomiguel/routeburn
 
-          cask="$(brew --repository acevedomiguel/routeburn)/Casks/routeburn.rb"
+          tap="$(brew --repository acevedomiguel/routeburn)"
+          cask="$tap/Casks/routeburn.rb"
+          tap_version=""
+
+          # A freshly published cask can take a short time to propagate. Refresh
+          # only this tap and wait for the version this workflow just released;
+          # never install an older cask and call that a successful verification.
+          for attempt in {1..18}; do
+            git -C "$tap" pull --ff-only origin main
+            tap_version="$(sed -nE 's/^[[:space:]]*version "([^"]+)".*/\1/p' "$cask" | head -1)"
+            if [ "$tap_version" = "${EXPECTED_VERSION}" ]; then
+              break
+            fi
+            echo "Waiting for RouteBurn ${EXPECTED_VERSION}; tap currently has ${tap_version:-unknown} (${attempt}/18)"
+            if [ "$attempt" -lt 18 ]; then
+              sleep 10
+            fi
+          done
+
+          if [ "$tap_version" != "${EXPECTED_VERSION}" ]; then
+            echo "::error file=Casks/routeburn.rb::timed out waiting for tap version ${EXPECTED_VERSION}; found ${tap_version:-unknown}"
+            exit 1
+          fi
+
+          brew install --cask routeburn
+          routeburn --version | grep -F "routeburn version ${EXPECTED_VERSION}"
 
           # The cask must not fall back to the deprecated `postflight` stanza.
           if grep -qE '^\s*postflight do' "$cask"; then
             echo "::error file=Casks/routeburn.rb::cask still uses the deprecated postflight stanza"
             exit 1
-          fi
-
-          brew install --cask routeburn
-
-          # Without HOMEBREW_TAP_TOKEN GoReleaser cannot push to the tap repo, so
-          # the cask is bumped by hand and may legitimately lag the release. In
-          # that case verify the cask installs and runs the version it declares;
-          # with the token set, the tap is pushed by the release itself and the
-          # version must match exactly.
-          tap_version="$(sed -nE 's/^[[:space:]]*version "([^"]+)".*/\1/p' "$cask" | head -1)"
-          if [ "$tap_version" = "${EXPECTED_VERSION}" ]; then
-            routeburn --version | grep -F "routeburn version ${EXPECTED_VERSION}"
-          else
-            echo "::warning file=Casks/routeburn.rb::tap cask is at ${tap_version} but ${EXPECTED_VERSION} was just released; bump the tap by hand or set HOMEBREW_TAP_TOKEN"
-            routeburn --version | grep -F "routeburn version ${tap_version}"
           fi
 
   verify-archives:
@@ -154,8 +165,8 @@ jobs:
         run: |
           set -eu
           case "$RUNNER_OS" in
-            Linux) asset="routeburn_${VERSION}_linux_amd64.tar.gz"; dir=linux_amd64 ;;
-            Windows) asset="routeburn_${VERSION}_windows_amd64.zip"; dir=windows_amd64 ;;
+            Linux) asset="routeburn_${VERSION}_linux_amd64.tar.gz" ;;
+            Windows) asset="routeburn_${VERSION}_windows_amd64.zip" ;;
           esac
           url="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${asset}"
           curl -fsSL -o "$asset" "$url"
