@@ -166,11 +166,16 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 // scrollHelp moves only the popup viewport, clamped to its wrapped content.
 func (m *Model) scrollHelp(delta int) {
-	next := m.helpScroll + delta
+	limit := ui.HelpScrollLimit(m.viewOptions())
+	current := m.helpScroll
+	if current > limit {
+		current = limit
+	}
+	next := current + delta
 	if next < 0 {
 		next = 0
 	}
-	if limit := ui.HelpScrollLimit(m.viewOptions()); next > limit {
+	if next > limit {
 		next = limit
 	}
 	m.helpScroll = next

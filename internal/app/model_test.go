@@ -464,6 +464,23 @@ func TestHelpPageScrollingAndReopenReset(t *testing.T) {
 	}
 }
 
+func TestHelpScrollClampsAfterResize(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	m.SetSize(60, 16)
+	keyCmd(m, "?")
+	for i := 0; i < 100; i++ {
+		keyCmd(m, "j")
+	}
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+	m = updated.(*Model)
+	bottom := m.View().Content
+	keyCmd(m, "k")
+	if got := m.View().Content; got == bottom {
+		t.Fatal("the first Up key after resizing must move above the new clamped bottom")
+	}
+}
+
 func keyCmd(m *Model, key string) tea.Cmd {
 	var msg tea.KeyPressMsg
 	switch key {
