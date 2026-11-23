@@ -19,6 +19,46 @@ type KeyMap struct {
 	Tab      key.Binding
 }
 
+// OverlayKeyMap describes only the keys available while Help is open.
+type OverlayKeyMap struct {
+	Scroll key.Binding
+	Page   key.Binding
+	Close  key.Binding
+	Quit   key.Binding
+}
+
+// NewOverlayKeyMap builds the contextual footer shown beneath the Help popup.
+func NewOverlayKeyMap() OverlayKeyMap {
+	return OverlayKeyMap{
+		Scroll: key.NewBinding(
+			key.WithKeys("j", "k", "up", "down"),
+			key.WithHelp("[↑↓]", "scroll"),
+		),
+		Page: key.NewBinding(
+			key.WithKeys("pgup", "pgdown"),
+			key.WithHelp("[pgup/pgdn]", "page"),
+		),
+		Close: key.NewBinding(
+			key.WithKeys("esc", "?", "q"),
+			key.WithHelp("[esc/?/q]", "close"),
+		),
+		Quit: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("[ctrl+c]", "quit"),
+		),
+	}
+}
+
+// ShortHelp is the one-line Help popup footer.
+func (k OverlayKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Scroll, k.Page, k.Close, k.Quit}
+}
+
+// FullHelp satisfies help.KeyMap; the popup footer uses ShortHelp.
+func (k OverlayKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
 // NewKeyMap builds the default bindings. Only keys the app actually handles are
 // listed, so the footer can never advertise a feature that does not exist.
 func NewKeyMap() KeyMap {

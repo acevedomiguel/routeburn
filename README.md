@@ -338,12 +338,18 @@ Cached data can be stale. A cached runway estimate is never presented as live.
 | Key | Action |
 | --- | --- |
 | `r` | Refresh now (throttled to one batch per 10 seconds) |
-| `j` / `Down` | Scroll down when the dashboard is taller than the terminal |
-| `k` / `Up` | Scroll up |
+| `j` / `Down` | Scroll down in the dashboard, or in the Help popup when it is open |
+| `k` / `Up` | Scroll up in the dashboard or Help popup |
 | `PgDn` / `PgUp` | Scroll one screen |
-| `?` | Toggle the help overlay |
-| `Esc` | Close the help overlay, or quit when it is closed |
-| `q` / `Ctrl+C` | Quit |
+| `?` | Toggle the Help popup |
+| `Esc` | Close the Help popup, or quit when it is closed |
+| `q` | Close the Help popup, or quit when it is closed |
+| `Ctrl+C` | Quit |
+
+Help opens as a centered, rounded popup above the dashboard. It includes the
+full key reference and an **About RouteBurn** section with the current version,
+repository, maintainer, and contact information. While Help is open, scrolling
+keys affect only the popup and the footer lists the available popup actions.
 
 The menu bar on the last row always lists the keys that actually work. The body
 is fitted to the frame at every supported size, so scrolling only engages on a

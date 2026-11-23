@@ -25,8 +25,9 @@ func demoModel(now func() time.Time) *app.Model {
 		},
 		// A placeholder management value keeps the model out of the setup
 		// state; it is never sent anywhere.
-		Creds: app.Creds{Management: "demo-fixture"},
-		Now:   now,
+		Creds:   app.Creds{Management: "demo-fixture"},
+		Now:     now,
+		Version: version,
 		Fetch: func(_ context.Context, opts app.FetchOptions) (domain.Snapshot, error) {
 			return ui.SampleSnapshotAt(opts.Now), nil
 		},
