@@ -1,3 +1,9 @@
+## [1.4.1](https://github.com/acevedomiguel/routeburn/compare/v1.4.0...v1.4.1) (2026-11-23)
+
+### Bug Fixes
+
+* wait for homebrew tap publication ([263a6de](https://github.com/acevedomiguel/routeburn/commit/263a6debfc3bcb0b484e909d020273c17651ee17))
+
 ## [1.4.0](https://github.com/acevedomiguel/routeburn/compare/v1.3.0...v1.4.0) (2026-11-23)
 
 ### Features
