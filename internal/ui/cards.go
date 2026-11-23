@@ -19,7 +19,9 @@ type ViewOptions struct {
 	Cached      bool
 	CacheAge    time.Duration
 	Banner      string
+	Version     string
 	HelpVisible bool
+	HelpScroll  int
 	Scroll      int
 	Page        int
 	Pages       int

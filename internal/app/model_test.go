@@ -58,11 +58,12 @@ func testModel(t *testing.T, opts testModelOptions) *Model {
 	}
 
 	model := New(Deps{
-		Config: cfg,
-		Creds:  creds,
-		Cache:  store,
-		Now:    func() time.Time { return clock },
-		Fetch:  fetch,
+		Config:  cfg,
+		Creds:   creds,
+		Cache:   store,
+		Now:     func() time.Time { return clock },
+		Fetch:   fetch,
+		Version: opts.version,
 	})
 	model.SetSize(100, 40)
 	return model
@@ -73,6 +74,7 @@ type testModelOptions struct {
 	refresh   *time.Duration
 	cachePath string
 	noCreds   bool
+	version   string
 	fetch     func(context.Context, FetchOptions) (domain.Snapshot, error)
 }
 
@@ -377,6 +379,108 @@ func TestEscClosesHelpBeforeQuitting(t *testing.T) {
 	}
 }
 
+func TestHelpUsesInjectedVersion(t *testing.T) {
+	m := testModel(t, testModelOptions{version: "1.2.3"})
+	keyCmd(m, "?")
+	view := m.View().Content
+	if !strings.Contains(view, "Version: 1.2.3") {
+		t.Fatalf("help must show the injected version:\n%s", view)
+	}
+	if strings.Contains(view, "Version: dev") {
+		t.Fatalf("help must not fall back to dev when a version is injected:\n%s", view)
+	}
+}
+
+func TestHelpOverlaysDashboard(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	snap := ui.SampleSnapshotAt(fixedNow())
+	updated, _ := m.Update(snapshotLoadedMsg{gen: 1, snapshot: snap})
+	m = updated.(*Model)
+	keyCmd(m, "?")
+
+	view := m.View().Content
+	for _, want := range []string{"Credits", "Daily spend", "RouteBurn help", "About RouteBurn", "╭", "╮", "╰", "╯"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("help overlay is missing %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestHelpScrollsWithoutMovingDashboard(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	m.SetSize(60, 16)
+	snap := ui.SampleSnapshotAt(fixedNow())
+	updated, _ := m.Update(snapshotLoadedMsg{gen: 1, snapshot: snap})
+	m = updated.(*Model)
+	m.scroll = 3
+	m.tableOffset = 4
+	keyCmd(m, "?")
+
+	before := m.View().Content
+	keyCmd(m, "j")
+	after := m.View().Content
+	if after == before {
+		t.Fatalf("j must scroll the Help popup at 60x16:\n%s", before)
+	}
+	for i := 0; i < 100 && !strings.Contains(m.View().Content, "https://acevedomiguel.com/contact"); i++ {
+		keyCmd(m, "j")
+	}
+	if view := m.View().Content; !strings.Contains(view, "About RouteBurn") || !strings.Contains(view, "https://acevedomiguel.com/contact") {
+		t.Fatalf("scrolling must reveal the complete About section:\n%s", view)
+	}
+	for i := 0; i < 20; i++ {
+		keyCmd(m, "j")
+	}
+	bottom := m.View().Content
+	keyCmd(m, "k")
+	if got := m.View().Content; got == bottom {
+		t.Fatal("k must scroll up immediately even after extra down keys at the bottom")
+	}
+	if m.scroll != 3 || m.tableOffset != 4 {
+		t.Fatalf("Help scrolling moved the dashboard: scroll=%d tableOffset=%d", m.scroll, m.tableOffset)
+	}
+}
+
+func TestHelpPageScrollingAndReopenReset(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	m.SetSize(60, 16)
+	keyCmd(m, "?")
+	top := m.View().Content
+
+	keyCmd(m, "pgdown")
+	if m.View().Content == top {
+		t.Fatal("PgDn must scroll the Help popup")
+	}
+	keyCmd(m, "pgup")
+	if got := m.View().Content; got != top {
+		t.Fatal("PgUp must return the Help popup to its previous page")
+	}
+
+	keyCmd(m, "j")
+	keyCmd(m, "esc")
+	keyCmd(m, "?")
+	if got := m.View().Content; got != top {
+		t.Fatal("reopening Help must reset it to the top")
+	}
+}
+
+func TestHelpScrollClampsAfterResize(t *testing.T) {
+	m := testModel(t, testModelOptions{})
+	m.SetSize(60, 16)
+	keyCmd(m, "?")
+	for i := 0; i < 100; i++ {
+		keyCmd(m, "j")
+	}
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+	m = updated.(*Model)
+	bottom := m.View().Content
+	keyCmd(m, "k")
+	if got := m.View().Content; got == bottom {
+		t.Fatal("the first Up key after resizing must move above the new clamped bottom")
+	}
+}
+
 func keyCmd(m *Model, key string) tea.Cmd {
 	var msg tea.KeyPressMsg
 	switch key {
@@ -390,6 +494,10 @@ func keyCmd(m *Model, key string) tea.Cmd {
 		msg = tea.KeyPressMsg{Code: tea.KeyUp}
 	case "tab":
 		msg = tea.KeyPressMsg{Code: tea.KeyTab}
+	case "pgdown":
+		msg = tea.KeyPressMsg{Code: tea.KeyPgDown}
+	case "pgup":
+		msg = tea.KeyPressMsg{Code: tea.KeyPgUp}
 	default:
 		r := []rune(key)[0]
 		msg = tea.KeyPressMsg{Code: r, Text: key}

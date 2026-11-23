@@ -112,9 +112,10 @@ func runTUI(rt *runtime, stdin io.Reader, stdout, stderr io.Writer) int {
 			Management: rt.creds.Management,
 			APIKey:     rt.creds.APIKey,
 		},
-		API:   rt.client,
-		Cache: rt.cache,
-		Now:   func() time.Time { return time.Now().UTC() },
+		API:     rt.client,
+		Cache:   rt.cache,
+		Now:     func() time.Time { return time.Now().UTC() },
+		Version: version,
 	})
 
 	program := tea.NewProgram(model,

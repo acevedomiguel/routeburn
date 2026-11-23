@@ -40,7 +40,9 @@ type Model struct {
 	nextAllowed time.Time
 	errorBanner string
 	notice      string
+	version     string
 	helpVisible bool
+	helpScroll  int
 	scroll      int
 	// tableOffset is the daily table's own scroll position, in days from the
 	// newest. It survives losing focus so Tab back lands where you left off.
@@ -107,6 +109,8 @@ type Deps struct {
 	Cache    *cache.Store
 	Now      func() time.Time
 	Location *time.Location
+	// Version is the build version shown in Help; empty means "dev".
+	Version string
 	// Fetch overrides the default snapshot builder (tests).
 	Fetch func(context.Context, FetchOptions) (domain.Snapshot, error)
 }
@@ -121,6 +125,10 @@ func New(deps Deps) *Model {
 	if loc == nil {
 		loc = time.UTC
 	}
+	version := deps.Version
+	if version == "" {
+		version = "dev"
+	}
 
 	m := &Model{
 		cfg:     deps.Config,
@@ -129,6 +137,7 @@ func New(deps Deps) *Model {
 		cache:   deps.Cache,
 		now:     now,
 		loc:     loc,
+		version: version,
 		state:   StateLoading,
 		gen:     0,
 		spinner: ui.NewSpinner(ui.NewStyles(!deps.Config.NoColor)),

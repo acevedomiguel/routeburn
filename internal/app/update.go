@@ -83,9 +83,18 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.helpVisible {
-		if key == "esc" || key == "?" || key == "q" {
+		switch key {
+		case "esc", "?", "q":
 			m.helpVisible = false
-			return m, nil
+			m.helpScroll = 0
+		case "j", "down":
+			m.scrollHelp(1)
+		case "k", "up":
+			m.scrollHelp(-1)
+		case "pgdown":
+			m.scrollHelp(maxInt(m.height-5, 1))
+		case "pgup":
+			m.scrollHelp(-maxInt(m.height-5, 1))
 		}
 		return m, nil
 	}
@@ -96,6 +105,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "?":
 		m.helpVisible = true
+		m.helpScroll = 0
 		return m, nil
 	case "esc":
 		// Esc dismisses the overlay when it is open, but with the dashboard in
@@ -154,6 +164,23 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// scrollHelp moves only the popup viewport, clamped to its wrapped content.
+func (m *Model) scrollHelp(delta int) {
+	limit := ui.HelpScrollLimit(m.viewOptions())
+	current := m.helpScroll
+	if current > limit {
+		current = limit
+	}
+	next := current + delta
+	if next < 0 {
+		next = 0
+	}
+	if next > limit {
+		next = limit
+	}
+	m.helpScroll = next
+}
+
 // moveTable scrolls the daily table by delta days, clamped to the series. It
 // stops one row short of the end so the pinned total row stays meaningful.
 func (m *Model) moveTable(delta int) (tea.Model, tea.Cmd) {
@@ -184,7 +211,9 @@ func (m *Model) viewOptions() ui.ViewOptions {
 		Cached:       m.cached,
 		CacheAge:     m.cacheAge,
 		Banner:       m.errorBanner,
+		Version:      m.version,
 		HelpVisible:  m.helpVisible,
+		HelpScroll:   m.helpScroll,
 		Scroll:       m.scroll,
 		Refreshing:   m.refreshing,
 		TableOffset:  m.tableOffset,
@@ -281,32 +310,34 @@ func (m *Model) View() tea.View {
 // render produces the frame. It is pure rendering.
 func (m *Model) render() string {
 	styles := ui.NewStyles(m.cfg.ColorsEnabled())
+	opts := m.viewOptions()
+	opts.Styles = styles
+	opts.Spinner = m.spinner.View()
 
-	if m.helpVisible {
-		return ui.HelpTextAt(styles, m.width)
-	}
-
+	var background string
 	switch m.state {
 	case StateSetup:
-		return ui.SetupView(ui.SetupOptions{
+		background = ui.SetupView(ui.SetupOptions{
 			Width:  m.width,
 			Height: m.height,
 			Styles: styles,
 			Banner: m.errorBanner,
 		})
 	case StateFatalError:
-		return ui.FatalView(ui.FatalOptions{
+		background = ui.FatalView(ui.FatalOptions{
 			Width:  m.width,
 			Height: m.height,
 			Styles: styles,
 			Reason: m.errorBanner,
 		})
+	default:
+		background = ui.Render(m.snapshot, opts)
 	}
 
-	opts := m.viewOptions()
-	opts.Styles = styles
-	opts.Spinner = m.spinner.View()
-	return ui.Render(m.snapshot, opts)
+	if m.helpVisible {
+		return ui.HelpOverlay(background, opts)
+	}
+	return background
 }
 
 // ColorsEnabled resolves the color setting for the model.
