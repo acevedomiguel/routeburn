@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/acevedomiguel/routeburn/compare/v1.3.0...v1.4.0) (2026-11-23)
+
+### Features
+
+* add about section and help popup ([15bd8d1](https://github.com/acevedomiguel/routeburn/commit/15bd8d1be67f31b27e67387d0615f65abdc4045b))
+
 ## [1.3.0](https://github.com/acevedomiguel/routeburn/compare/v1.2.0...v1.3.0) (2026-11-22)
 
 ### Features
