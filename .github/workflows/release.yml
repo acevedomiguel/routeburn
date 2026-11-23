@@ -108,15 +108,42 @@ jobs:
     steps:
       - name: Install and test published cask
         run: |
+          set -euo pipefail
           brew tap acevedomiguel/routeburn
           # The tap is third-party, so Homebrew refuses to load the cask until it
           # is trusted explicitly.
           brew trust --tap acevedomiguel/routeburn
+
+          tap="$(brew --repository acevedomiguel/routeburn)"
+          cask="$tap/Casks/routeburn.rb"
+          tap_version=""
+
+          # A freshly published cask can take a short time to propagate. Refresh
+          # only this tap and wait for the version this workflow just released;
+          # never install an older cask and call that a successful verification.
+          for attempt in {1..18}; do
+            git -C "$tap" pull --ff-only origin main
+            tap_version="$(sed -nE 's/^[[:space:]]*version "([^"]+)".*/\1/p' "$cask" | head -1)"
+            if [ "$tap_version" = "${EXPECTED_VERSION}" ]; then
+              break
+            fi
+            echo "Waiting for RouteBurn ${EXPECTED_VERSION}; tap currently has ${tap_version:-unknown} (${attempt}/18)"
+            if [ "$attempt" -lt 18 ]; then
+              sleep 10
+            fi
+          done
+
+          if [ "$tap_version" != "${EXPECTED_VERSION}" ]; then
+            echo "::error file=Casks/routeburn.rb::timed out waiting for tap version ${EXPECTED_VERSION}; found ${tap_version:-unknown}"
+            exit 1
+          fi
+
           brew install --cask routeburn
           routeburn --version | grep -F "routeburn version ${EXPECTED_VERSION}"
+
           # The cask must not fall back to the deprecated `postflight` stanza.
-          if grep -qE '^\s*postflight do' "$(brew --repository acevedomiguel/routeburn)/Casks/routeburn.rb"; then
-            echo "cask still uses the deprecated postflight stanza" >&2
+          if grep -qE '^\s*postflight do' "$cask"; then
+            echo "::error file=Casks/routeburn.rb::cask still uses the deprecated postflight stanza"
             exit 1
           fi
 
@@ -138,8 +165,8 @@ jobs:
         run: |
           set -eu
           case "$RUNNER_OS" in
-            Linux) asset="routeburn_${VERSION}_linux_amd64.tar.gz"; dir=linux_amd64 ;;
-            Windows) asset="routeburn_${VERSION}_windows_amd64.zip"; dir=windows_amd64 ;;
+            Linux) asset="routeburn_${VERSION}_linux_amd64.tar.gz" ;;
+            Windows) asset="routeburn_${VERSION}_windows_amd64.zip" ;;
           esac
           url="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${asset}"
           curl -fsSL -o "$asset" "$url"
