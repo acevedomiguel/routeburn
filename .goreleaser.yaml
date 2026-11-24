@@ -66,6 +66,9 @@ homebrew_casks:
       owner: acevedomiguel
       name: homebrew-routeburn
       branch: main
+      # The workflow GITHUB_TOKEN cannot write to another repository; the tap
+      # push must authenticate with the PAT stored in HOMEBREW_TAP_TOKEN.
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     commit_msg_template: "chore: update routeburn to {{ .Tag }}"
     skip_upload: "{{ if not .Env.HOMEBREW_TAP_TOKEN }}true{{ end }}"
     # RouteBurn has no Apple Developer certificate, so the binary is only
