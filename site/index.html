@@ -66,7 +66,7 @@
     <h2 id="features-title">Features</h2>
     <ul class="feature-list">
       <li><strong>Credit balance and recent cost monitoring.</strong> Remaining account credit as a single figure, plus spend, requests, tokens, and cache-hit rate for the last 30 days.</li>
-      <li><strong>Daily spend table.</strong> 30 daily UTC buckets as a scrollable table — date, spend, tokens, requests, and cache hit rate, newest first, with a pinned total row and an inline per-day meter heat-coloured green to red by share of the peak day.</li>
+      <li><strong>Daily spend table.</strong> 30 daily UTC buckets as a scrollable table — date, spend, tokens, requests, and cache hit rate, newest first, with a pinned total row and an inline per-day meter heat-coloured green to red by share of the peak day. Days stay in UTC so the figures match the OpenRouter dashboard.</li>
       <li><strong>Cost by model.</strong> Model spend for the same window, ranked with an inline proportional meter and an <code>Other (remaining)</code> rollup.</li>
       <li><strong>Credit-runway estimate.</strong> Days until the balance reaches zero at the recent burn rate, with low-confidence and edge cases labelled instead of guessed.</li>
       <li><strong>Built on Charm v2.</strong> The help bar, refresh spinner, pagination dots, and the daily table are Charm components in a full-screen alternate-screen layout; on wide terminals the panels stack in a sidebar beside the table.</li>
@@ -146,6 +146,14 @@ depletion_date = start of today + ceil(days_remaining) days</code></pre>
     </table>
     <p>Account runway is also not the same thing as a per-key limit reset; the dashboard answers
     account credit questions, and per-key limits are a separate scope.</p>
+    <h3>Why days are UTC days</h3>
+    <p>Every date in the dashboard is a UTC day, deliberately, so the numbers match the
+    OpenRouter dashboard and the analytics API behind it. That API returns day buckets as UTC
+    midnights and offers no timezone field; asking for a timezone or for hourly granularity moves
+    the query off the daily rollups onto raw generations, which is capped at 31 days and can
+    return partial values. Re-bucketing locally would produce totals that disagree with the
+    source, so RouteBurn keeps UTC instead. Only the runway depletion <em>date</em> is shown in
+    your local time, because that is a calendar calculation rather than an API value.</p>
   </section>
 
   <section id="security" aria-labelledby="security-title">
@@ -176,6 +184,10 @@ depletion_date = start of today + ceil(days_remaining) days</code></pre>
     <code>refresh_interval</code> in the configuration file to a longer duration, or to
     <code>0</code> to disable automatic refresh; manual refresh with <code>r</code> stays available
     and is throttled.</p>
+
+    <h3>Why are the daily buckets in UTC?</h3>
+    <p>To match the OpenRouter dashboard and the analytics API, which returns UTC day buckets and
+    accepts no timezone parameter. See <a href="#runway">Why days are UTC days</a>.</p>
 
     <h3>How is runway calculated?</h3>
     <p>Average daily burn over the previous 30 complete UTC days, divided into the remaining
