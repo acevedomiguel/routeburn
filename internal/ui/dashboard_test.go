@@ -240,10 +240,10 @@ func TestTallDashboardPutsTokensBesideCostByModel(t *testing.T) {
 		out := Render(&snap, ViewOptions{Width: 90, Height: h, Styles: plainStyles(), Now: fixedNow()})
 		lines := strings.Split(out, "\n")
 
-		modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
-		tokensRow, tokensCol := panelCol(t, lines, "╭─┬ Tokens")
-		_, creditsCol := panelCol(t, lines, "╭─┬ Credits")
-		_, last30Col := panelCol(t, lines, "╭─┬ Last 30 days")
+		modelsRow, modelsCol := panelCol(t, lines, "╭─ Cost by model")
+		tokensRow, tokensCol := panelCol(t, lines, "╭─ Tokens")
+		_, creditsCol := panelCol(t, lines, "╭─ Credits")
+		_, last30Col := panelCol(t, lines, "╭─ Last 30 days")
 
 		if modelsRow != tokensRow {
 			t.Errorf("height %d: model row=%d token row=%d, want the same row", h, modelsRow, tokensRow)
@@ -268,22 +268,22 @@ func TestDetailBoundaryDecidesTheSharedRow(t *testing.T) {
 	opts := ViewOptions{Styles: plainStyles(), Now: fixedNow()}
 
 	tall := strings.Join(dashboardBody(&snap, opts, lay, 26), "\n")
-	if !strings.Contains(tall, "╭─┬ Tokens") {
+	if !strings.Contains(tall, "╭─ Tokens") {
 		t.Fatalf("a 26-row body must show the token split:\n%s", tall)
 	}
 	tallLines := strings.Split(tall, "\n")
-	modelRow, modelCol := panelCol(t, tallLines, "╭─┬ Cost by model")
-	tokenRow, tokenCol := panelCol(t, tallLines, "╭─┬ Tokens")
+	modelRow, modelCol := panelCol(t, tallLines, "╭─ Cost by model")
+	tokenRow, tokenCol := panelCol(t, tallLines, "╭─ Tokens")
 	if modelRow != tokenRow || modelCol >= tokenCol {
 		t.Errorf("26-row body: model row/col=%d/%d token row/col=%d/%d, want side by side",
 			modelRow, modelCol, tokenRow, tokenCol)
 	}
 
 	short := strings.Join(dashboardBody(&snap, opts, lay, 25), "\n")
-	if strings.Contains(short, "╭─┬ Tokens") {
+	if strings.Contains(short, "╭─ Tokens") {
 		t.Errorf("a 25-row body must drop the token split:\n%s", short)
 	}
-	if _, col := panelCol(t, strings.Split(short, "\n"), "╭─┬ Cost by model"); col != 0 {
+	if _, col := panelCol(t, strings.Split(short, "\n"), "╭─ Cost by model"); col != 0 {
 		t.Errorf("25-row body: model col=%d, want full width at 0", col)
 	}
 }
@@ -299,11 +299,11 @@ func TestShortDashboardDropsTokensAndSpansModelFullWidth(t *testing.T) {
 	// model panel at all. That case is covered by TestTinyTerminalDropsTheModelPanel.
 	for _, h := range []int{20, 24, 26} {
 		out := Render(&snap, ViewOptions{Width: 90, Height: h, Styles: plainStyles(), Now: fixedNow()})
-		if strings.Contains(out, "╭─┬ Tokens") {
+		if strings.Contains(out, "╭─ Tokens") {
 			t.Errorf("height %d: token panel must be dropped", h)
 		}
 		lines := strings.Split(out, "\n")
-		if _, col := panelCol(t, lines, "╭─┬ Cost by model"); col != 0 {
+		if _, col := panelCol(t, lines, "╭─ Cost by model"); col != 0 {
 			t.Errorf("height %d: model panel col=%d, want full width at 0", h, col)
 		}
 	}
@@ -318,9 +318,9 @@ func TestSingleColumnKeepsStackedOrder(t *testing.T) {
 	lines := dashboardBody(&snap, ViewOptions{Styles: plainStyles(), Now: fixedNow()}, lay, 40)
 	body := strings.Join(lines, "\n")
 
-	tokens := strings.Index(body, "╭─┬ Tokens")
-	spark := strings.Index(body, "╭─┬ Daily spend")
-	models := strings.Index(body, "╭─┬ Cost by model")
+	tokens := strings.Index(body, "╭─ Tokens")
+	spark := strings.Index(body, "╭─ Daily spend")
+	models := strings.Index(body, "╭─ Cost by model")
 	if tokens < 0 || spark < 0 || models < 0 {
 		t.Fatalf("missing panel: tokens=%d spark=%d models=%d\n%s", tokens, spark, models, body)
 	}
@@ -328,7 +328,7 @@ func TestSingleColumnKeepsStackedOrder(t *testing.T) {
 		t.Errorf("stacked order broken: tokens=%d spark=%d models=%d", tokens, spark, models)
 	}
 	for _, l := range lines {
-		if strings.Contains(l, "╭─┬ Tokens") && strings.Count(l, "╭") != 1 {
+		if strings.Contains(l, "╭─ Tokens") && strings.Count(l, "╭") != 1 {
 			t.Errorf("single-column token panel must be full width: %q", l)
 		}
 	}
@@ -344,13 +344,13 @@ func TestWideLayoutPutsTheTableBesideThePanels(t *testing.T) {
 	lines := strings.Split(out, "\n")
 	credits, last30, table := -1, -1, -1
 	for i, l := range lines {
-		if strings.Contains(l, "╭─┬ Credits") && credits < 0 {
+		if strings.Contains(l, "╭─ Credits") && credits < 0 {
 			credits = i
 		}
-		if strings.Contains(l, "╭─┬ Last 30 days") && last30 < 0 {
+		if strings.Contains(l, "╭─ Last 30 days") && last30 < 0 {
 			last30 = i
 		}
-		if strings.Contains(l, "╭─┬ Daily spend") && table < 0 {
+		if strings.Contains(l, "╭─ Daily spend") && table < 0 {
 			table = i
 		}
 	}
@@ -364,7 +364,7 @@ func TestWideLayoutPutsTheTableBesideThePanels(t *testing.T) {
 		t.Errorf("the small panels must stack down the left column (credits %d, last30 %d):\n%s", credits, last30, out)
 	}
 	// The table's top border must start to the right of the left column.
-	if idx := strings.Index(lines[table], "╭─┬ Daily spend"); idx == 0 {
+	if idx := strings.Index(lines[table], "╭─ Daily spend"); idx == 0 {
 		t.Errorf("the table must sit in a right-hand column, not full width:\n%s", out)
 	}
 }
@@ -377,10 +377,10 @@ func TestNarrowLayoutKeepsTheTableBelowThePanels(t *testing.T) {
 	lines := strings.Split(out, "\n")
 	credits, table := -1, -1
 	for i, l := range lines {
-		if strings.Contains(l, "╭─┬ Credits") && credits < 0 {
+		if strings.Contains(l, "╭─ Credits") && credits < 0 {
 			credits = i
 		}
-		if strings.Contains(l, "╭─┬ Daily spend") && table < 0 {
+		if strings.Contains(l, "╭─ Daily spend") && table < 0 {
 			table = i
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"charm.land/bubbles/v2/spinner"
+	"github.com/acevedomiguel/routeburn/internal/domain"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -218,6 +219,7 @@ func (m *Model) viewOptions() ui.ViewOptions {
 		Refreshing:   m.refreshing,
 		TableOffset:  m.tableOffset,
 		TableFocused: m.tableFocused,
+		Demo:         m.demo,
 	}
 }
 
@@ -304,7 +306,23 @@ func maxInt(a, b int) int {
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.render())
 	v.AltScreen = true
+	v.WindowTitle = m.windowTitle()
 	return v
+}
+
+// windowTitle puts the headline figures in the terminal tab, the same way
+// Kimiburn does: remaining credit, plus the runway when it is a number of
+// days. Without a snapshot, or on the setup and error screens, it is just the
+// app name.
+func (m *Model) windowTitle() string {
+	if m.state != StateReady || m.snapshot == nil {
+		return "routeburn"
+	}
+	title := "routeburn · " + domain.FormatCredits(m.snapshot.Account.Remaining) + " left"
+	if rw := m.snapshot.Runway; rw.Basis == domain.BasisFinite {
+		title += " · runway " + domain.FormatDaysRemaining(rw)
+	}
+	return title
 }
 
 // render produces the frame. It is pure rendering.

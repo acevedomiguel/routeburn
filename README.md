@@ -2,49 +2,13 @@
 
 **A read-only terminal dashboard for OpenRouter credits, spend, and runway.**
 
-```
-╭─┬ Credits ┬────────────────────────── Updated 23:42 ─╮ ╭─┬ Daily spend ┬───────────────────────────────────────╮
-│ Remaining ··································· $42.10 │ │  DATE                                 SPEND   TOKENS  │
-│ Runway ···························· 102 days ~Mar 03 │ │  Nov 21       ▇▇▇▇▇▇░░░░░░░░░░░░░░    $0.33     231K  │
-│ Daily burn ······························· $0.41/day │ │  Nov 20       ▇▇▇▇▇▇▇▇░░░░░░░░░░░░    $0.50     350K  │
-╰──────────────────────────────────────────────────────╯ │  Nov 19       ▇▇▇▇░░░░░░░░░░░░░░░░    $0.25     175K  │
-                                                         │  Nov 18       ▇▇▇░░░░░░░░░░░░░░░░░    $0.15     105K  │
-╭─┬ Last 30 days ┬─────────────────────────────────────╮ │  Nov 17       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.30     210K  │
-│ Spend ······································· $11.29 │ │  Nov 16       ▇▇▇▇▇▇▇▇░░░░░░░░░░░░    $0.45     315K  │
-│ Requests ····································· 1,240 │ │  Nov 15       ▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░    $0.60     420K  │
-│ Tokens ········································ 8.4M │ │  Nov 14       ▇▇▇░░░░░░░░░░░░░░░░░    $0.20     140K  │
-│ Cache hit ···································· 18.4% │ │  Nov 13       ▇▇▇▇▇▇░░░░░░░░░░░░░░    $0.35     245K  │
-╰──────────────────────────────────────────────────────╯ │  Nov 12       ▇▇▇▇▇▇▇░░░░░░░░░░░░░    $0.40     280K  │
-                                                         │  Nov 11       ▇▇▇▇▇▇▇▇▇░░░░░░░░░░░    $0.55     385K  │
-╭─┬ Tokens ┬───────────────────────────────────────────╮ │  Nov 10       ▇▇▇▇░░░░░░░░░░░░░░░░    $0.24     168K  │
-│ Input ·············· 7.1M  Output ············· 1.3M │ │  Nov 09       ▇▇▇░░░░░░░░░░░░░░░░░    $0.18     126K  │
-│ Cached ············· 1.5M  Reasoning ·········· 480K │ │  Nov 08       ░░░░░░░░░░░░░░░░░░░░    $0.00        0  │
-╰──────────────────────────────────────────────────────╯ │  Nov 07       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.31     217K  │
-                                                         │  Nov 06       ▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░    $0.77     539K  │
-╭─┬ Cost by model ┬────────────────────────────────────╮ │  Nov 05       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇    $1.20     840K  │
-│ claude-sonnet-4 ··············· $7.21 ▇▇▇▇▇▇░░░░ 58% │ │  Nov 04       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░    $0.90     630K  │
-│ gpt-5 ························· $3.82 ▇▇▇░░░░░░░ 31% │ │  Nov 03       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.27     189K  │
-│ llama-4-70b ··················· $1.31 ▇░░░░░░░░░ 11% │ │  Nov 02       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.31     217K  │
-╰──────────────────────────────────────────────────────╯ │  Nov 01       ▇▇▇▇▇▇▇░░░░░░░░░░░░░    $0.42     294K  │
-                                                         │  Oct 31       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░    $0.88     616K  │
-                                                         │  Oct 30       ▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░    $0.61     427K  │
-                                                         │  Oct 29       ░░░░░░░░░░░░░░░░░░░░    $0.00        0  │
-                                                         │  Oct 28       ▇░░░░░░░░░░░░░░░░░░░    $0.05      35K  │
-                                                         │  Oct 27       ▇▇▇░░░░░░░░░░░░░░░░░    $0.20     140K  │
-                                                         │  Oct 26       ▇▇▇▇▇▇▇░░░░░░░░░░░░░    $0.44     308K  │
-                                                         │  Oct 25       ▇▇▇▇▇░░░░░░░░░░░░░░░    $0.31     217K  │
-                                                         │  Oct 24       ▇▇░░░░░░░░░░░░░░░░░░    $0.12      84K  │
-                                                         │  Oct 23       ░░░░░░░░░░░░░░░░░░░░    $0.00        0  │
-                                                         │                                                       │
-                                                         │                                                       │
-                                                         │ ───────────────────────────────────────────────────── │
-                                                         │  30 days                             $11.29     7.9M  │
-                                                         ╰───────────────────────────────────────────────────────╯
- [r] refresh  [↑↓] scroll  [tab] table  [?] help  [q] quit                                                          
-```
+Website: <https://acevedomiguel.github.io/routeburn/>
 
-Illustrative rendering with placeholder values. The dashboard shows only your
-own account figures.
+<p align="center">
+  <img src="assets-src/terminal-demo.png" width="1280" alt="RouteBurn terminal dashboard: a centred title, a sidebar of credits, last 30 days, tokens and cost-by-model panels, beside a full-height daily spend table with heat-coloured bars.">
+</p>
+
+Captured from `routeburn demo` with synthetic data; the dashboard shows only your own account figures. Regenerate it with `vhs assets-src/terminal-demo.tape` (see [assets-src/README.md](assets-src/README.md)).
 
 RouteBurn answers three questions without opening a browser: how much credit is
 left, what was spent in the last 30 days, and how long that balance lasts at the

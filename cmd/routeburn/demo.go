@@ -28,6 +28,7 @@ func demoModel(now func() time.Time) *app.Model {
 		Creds:   app.Creds{Management: "demo-fixture"},
 		Now:     now,
 		Version: version,
+		Demo:    true,
 		Fetch: func(_ context.Context, opts app.FetchOptions) (domain.Snapshot, error) {
 			return ui.SampleSnapshotAt(opts.Now), nil
 		},

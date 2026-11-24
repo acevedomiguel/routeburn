@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/acevedomiguel/routeburn/internal/domain"
 )
 
@@ -32,15 +34,34 @@ type ViewOptions struct {
 	// ignored while the body owns the scroll keys.
 	TableOffset  int
 	TableFocused bool
+
+	// Demo marks the synthetic fixture in the title row, so a screenshot or
+	// recording can never be mistaken for a real account.
+	Demo bool
+}
+
+// Title rows shown centred on the first line, the same way Kimiburn does.
+const (
+	titleLive = "ROUTEBURN · OpenRouter credits and runway"
+	titleDemo = "ROUTEBURN · SYNTHETIC DATA · no provider calls"
+)
+
+// titleRow centres the app title across the terminal width.
+func titleRow(opts ViewOptions) string {
+	title := titleLive
+	if opts.Demo {
+		title = titleDemo
+	}
+	return lipgloss.PlaceHorizontal(opts.Width, lipgloss.Center, opts.Styles.Title.Render(truncate(title, opts.Width)))
 }
 
 // Render draws the full dashboard. It never performs IO.
 //
-// The layout fills the alternate screen exactly: the panels, and the bubbles
-// help bar pinned to the last row, so the bar never floats mid-screen. There
-// is no outer frame: the panels are the frame, and the app name is not
-// repeated inside the app. The freshness status lives in the Credits panel's
-// border caption, not on a floating line.
+// The layout fills the alternate screen exactly: a centred title row, the
+// panels, and the bubbles help bar pinned to the last row, so the bar never
+// floats mid-screen. There is no outer frame: the panels are the frame. The
+// freshness status lives in the Credits panel's border caption, not on a
+// floating line.
 func Render(snap *domain.Snapshot, opts ViewOptions) string {
 	if opts.Width <= 0 {
 		opts.Width = 80
@@ -50,14 +71,14 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 		return opts.Styles.Warning.Render(lay.Message) + "\n"
 	}
 
-	// The footer occupies the last row. A banner is an extra row above the
-	// body, so it comes out of the body's budget rather than pushing the
-	// footer off the bottom of the screen.
+	// The title occupies the first row and the footer the last. A banner is an
+	// extra row above the body, so it comes out of the body's budget rather
+	// than pushing the footer off the bottom of the screen.
 	bannerRows := 0
 	if opts.Banner != "" {
 		bannerRows = 1
 	}
-	bodyHeight := opts.Height - 1 - bannerRows
+	bodyHeight := opts.Height - 2 - bannerRows
 	if bodyHeight < 1 {
 		bodyHeight = 1
 	}
@@ -80,7 +101,7 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 		lines = fitLinesSlice(lines, bodyHeight)
 	}
 
-	header := ""
+	header := titleRow(opts) + "\n"
 	if opts.Banner != "" {
 		header = opts.Styles.Banner.Render(truncate(opts.Banner, lay.Width)) + "\n"
 	}
@@ -506,24 +527,55 @@ func dayCount(snap *domain.Snapshot) int {
 func TableWindow(snap *domain.Snapshot, opts ViewOptions) int {
 	opts.TableOffset = 0
 	lines := strings.Split(Render(snap, opts), "\n")
+	header := []rune(boxTopLeft + boxHorizontal + " Daily spend")
 	for i, line := range lines {
-		if !strings.Contains(line, boxTopLeft+boxHorizontal+boxTick+" Daily spend") {
+		// Rows are measured in plain text, and only within the table's own
+		// columns: in the two-column layout the sidebar panels share these
+		// rows, and their borders must not end the count early.
+		top := []rune(ansi.Strip(line))
+		start := runeIndex(top, header)
+		if start < 0 {
 			continue
 		}
-		// Rows after the header run until the separator rule that sits above
-		// the pinned total.
+		end := len(top)
+		if close := runeIndex(top[start:], []rune(boxTopRight)); close >= 0 {
+			end = start + close + 1
+		}
+		// Rows after the column header run until the separator rule that sits
+		// above the pinned total.
 		count := 0
 		for _, row := range lines[i+2:] {
-			if strings.Contains(row, strings.Repeat(boxHorizontal, 8)) {
-				return maxInt(count, 1)
+			cells := []rune(ansi.Strip(row))
+			if start >= len(cells) {
+				break
 			}
-			if strings.Contains(row, boxBottomLeft) {
-				return maxInt(count, 1)
+			cell := string(cells[start:minInt(end, len(cells))])
+			if strings.Contains(cell, strings.Repeat(boxHorizontal, 8)) || strings.Contains(cell, boxBottomLeft) {
+				break
 			}
 			count++
 		}
+		return maxInt(count, 1)
 	}
 	return 1
+}
+
+// runeIndex finds needle in haystack by rune position, which for the
+// dashboard's single-width glyphs is also the terminal column.
+func runeIndex(haystack, needle []rune) int {
+	for i := 0; i+len(needle) <= len(haystack); i++ {
+		match := true
+		for j, r := range needle {
+			if haystack[i+j] != r {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
 }
 
 // neededTableHeight is the tallest the panel can usefully be: a border, a
