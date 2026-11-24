@@ -611,10 +611,12 @@ func TestTableFocusRoutesScrollKeys(t *testing.T) {
 	m.snapshot = &snap
 	m.helpVisible = false
 	m.tableFocused = true
+	// Short enough that the 30 days cannot all fit, so the table scrolls.
+	m.SetSize(100, 24)
 
 	window := ui.TableWindow(m.snapshot, m.viewOptions())
-	if window < 1 {
-		t.Fatalf("table window = %d, want at least 1", window)
+	if window < 2 || window >= len(snap.Daily) {
+		t.Fatalf("table window = %d, want a partial page of %d days", window, len(snap.Daily))
 	}
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})

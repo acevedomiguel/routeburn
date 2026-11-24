@@ -140,11 +140,11 @@ func TestCostByModelAndTokensShareARow(t *testing.T) {
 	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
-	creditsRow, creditsCol := panelCol(t, lines, "╭─┬ Credits")
-	modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
-	tokensRow, tokensCol := panelCol(t, lines, "╭─┬ Tokens")
-	sparkRow, _ := panelCol(t, lines, "╭─┬ Daily spend")
-	last30Row, last30Col := panelCol(t, lines, "╭─┬ Last 30 days")
+	creditsRow, creditsCol := panelCol(t, lines, "╭─ Credits")
+	modelsRow, modelsCol := panelCol(t, lines, "╭─ Cost by model")
+	tokensRow, tokensCol := panelCol(t, lines, "╭─ Tokens")
+	sparkRow, _ := panelCol(t, lines, "╭─ Daily spend")
+	last30Row, last30Col := panelCol(t, lines, "╭─ Last 30 days")
 	if last30Row != creditsRow {
 		t.Errorf("credits/last-30 must share the top row: credits=%d last30=%d", creditsRow, last30Row)
 	}
@@ -180,8 +180,8 @@ func TestSharedRowPanelsEndOnTheSameRow(t *testing.T) {
 	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
-	modelsRow, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
-	tokensRow, tokensCol := panelCol(t, lines, "╭─┬ Tokens")
+	modelsRow, modelsCol := panelCol(t, lines, "╭─ Cost by model")
+	tokensRow, tokensCol := panelCol(t, lines, "╭─ Tokens")
 	if modelsRow != tokensRow {
 		t.Fatalf("panels are not on the same row: model=%d token=%d", modelsRow, tokensRow)
 	}
@@ -198,12 +198,12 @@ func TestSharedRowPanelsEndOnTheSameRow(t *testing.T) {
 func TestShortTerminalDropsTokensAndKeepsModelFullWidth(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
 	out := Render(&snap, ViewOptions{Width: 120, Height: 20, Styles: plainStyles(), Now: fixedNow()})
-	if strings.Contains(out, "╭─┬ Tokens") {
+	if strings.Contains(out, "╭─ Tokens") {
 		t.Errorf("short terminal must not draw the token panel:\n%s", out)
 	}
 	lines := strings.Split(out, "\n")
-	_, sparkCol := panelCol(t, lines, "╭─┬ Daily spend")
-	_, modelCol := panelCol(t, lines, "╭─┬ Cost by model")
+	_, sparkCol := panelCol(t, lines, "╭─ Daily spend")
+	_, modelCol := panelCol(t, lines, "╭─ Cost by model")
 	if modelCol != sparkCol {
 		t.Errorf("model panel column = %d, want full width at %d", modelCol, sparkCol)
 	}
@@ -240,7 +240,7 @@ func TestTokenPanelKeepsEveryValueInTheNarrowColumn(t *testing.T) {
 	out := Render(&snap, ViewOptions{Width: 60, Height: 28, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
-	_, tokensCol := panelCol(t, lines, "╭─┬ Tokens")
+	_, tokensCol := panelCol(t, lines, "╭─ Tokens")
 	for _, want := range []string{"7.1M", "1.3M", "1.5M", "480K"} {
 		found := false
 		for _, l := range lines {
@@ -268,7 +268,7 @@ func TestNarrowModelColumnShowsTheTopSpender(t *testing.T) {
 	out := Render(&snap, ViewOptions{Width: 60, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
 
-	_, modelsCol := panelCol(t, lines, "╭─┬ Cost by model")
+	_, modelsCol := panelCol(t, lines, "╭─ Cost by model")
 	found := false
 	for _, l := range lines {
 		tail := tailFromCol(l, modelsCol)

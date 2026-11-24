@@ -18,10 +18,6 @@ const (
 	boxHorizontal  = "─"
 	boxVertical    = "│"
 	boxDot         = "·"
-	// boxTick is the title delimiter: a short stroke hanging down from the
-	// horizontal border, so the title reads as a notch in the line rather than
-	// as a full-height vertical bar interrupting it.
-	boxTick = "┬"
 )
 
 // panel draws one bordered box exactly width columns wide and height rows tall,
@@ -57,15 +53,16 @@ func focusedCaptionPanel(title, caption string, rows []string, width, height int
 	}
 
 	title = truncate(title, maxInt(inner-5, 1))
-	// The title sits in a notch: the border runs flat, dips down at each end of
-	// the word with a tick, and resumes. Every glyph on the border uses the same
-	// accent colour, corners included, so a panel never shows two border colours.
+	// Plain horizontal rules keep the title visually quiet and avoid
+	// introducing a second glyph that looks like a column separator. Every
+	// glyph on the border uses the same accent colour, corners included, so a
+	// panel never shows two border colours.
 	titleStyle := st.CardHead
 	if focused && st.Enabled {
 		titleStyle = titleStyle.Reverse(true)
 	}
-	open := st.Accent.Render(boxHorizontal + boxTick + " ")
-	close := st.Accent.Render(" " + boxTick)
+	open := st.Accent.Render(boxHorizontal + " ")
+	close := st.Accent.Render(" " + boxHorizontal)
 	head := open + titleStyle.Render(title) + close
 	tail := ""
 	if caption != "" {

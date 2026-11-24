@@ -27,19 +27,16 @@ func TestPanelIsExactWidthAndHeight(t *testing.T) {
 	}
 }
 
-// The title is inlaid in the top border, like btop's panel headers. The title
-// is delimited by short downward ticks, not by full-height brackets.
+// The title is inlaid in the top border, like btop's panel headers, between
+// plain horizontal rules: no tick or bracket glyph interrupts the line.
 func TestPanelInlaysTitleInTheTopBorder(t *testing.T) {
 	rows := panel("Credits", nil, 40, 3, plainStyles())
 	top := rows[0]
-	if !strings.HasPrefix(top, "╭─┬") {
+	if !strings.HasPrefix(top, "╭─ Credits ─") {
 		t.Errorf("top border = %q", top)
 	}
-	if !strings.Contains(top, " Credits ") {
-		t.Errorf("top border must inlay the title: %q", top)
-	}
-	if !strings.Contains(top, "┬") {
-		t.Errorf("title must be delimited by downward ticks: %q", top)
+	if strings.Contains(top, "┬") {
+		t.Errorf("title must not be delimited by tick glyphs: %q", top)
 	}
 	if strings.Contains(top, "┤") || strings.Contains(top, "├") {
 		t.Errorf("title must not use full-height brackets: %q", top)
@@ -157,13 +154,17 @@ func TestJoinColumnsAlignsRows(t *testing.T) {
 }
 
 // The freshness status sits in the Credits panel's border caption slot, so the
-// dashboard opens with panels rather than a floating status line.
+// dashboard opens with the centred title and then panels, never a floating
+// status line.
 func TestStatusSitsInTheCreditsBorderCaption(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
 	out := Render(&snap, ViewOptions{Width: 80, Height: 30, Styles: plainStyles(), Now: fixedNow()})
 	lines := strings.Split(out, "\n")
-	if !strings.Contains(lines[0], "╭") {
-		t.Errorf("the dashboard must open with a panel, not a floating status line: %q", lines[0])
+	if strings.TrimSpace(lines[0]) != "ROUTEBURN · OpenRouter credits and runway" {
+		t.Errorf("the dashboard must open with the centred title: %q", lines[0])
+	}
+	if !strings.Contains(lines[1], "╭") {
+		t.Errorf("the title must be followed by a panel, not a floating status line: %q", lines[1])
 	}
 	// The clock is rendered in the machine's local timezone, so the expectation
 	// is computed the same way rather than hard-coded: the test must pass in any
@@ -171,7 +172,7 @@ func TestStatusSitsInTheCreditsBorderCaption(t *testing.T) {
 	want := "Updated " + fixedNow().In(time.Local).Format("15:04")
 	found := false
 	for _, l := range lines {
-		if strings.Contains(l, "╭─┬ Credits") {
+		if strings.Contains(l, "╭─ Credits") {
 			found = true
 			if !strings.Contains(l, want) {
 				t.Errorf("credits border must carry %q: %q", want, l)

@@ -41,6 +41,7 @@ type Model struct {
 	errorBanner string
 	notice      string
 	version     string
+	demo        bool
 	helpVisible bool
 	helpScroll  int
 	scroll      int
@@ -111,6 +112,8 @@ type Deps struct {
 	Location *time.Location
 	// Version is the build version shown in Help; empty means "dev".
 	Version string
+	// Demo labels the title row as synthetic fixture data.
+	Demo bool
 	// Fetch overrides the default snapshot builder (tests).
 	Fetch func(context.Context, FetchOptions) (domain.Snapshot, error)
 }
@@ -138,6 +141,7 @@ func New(deps Deps) *Model {
 		now:     now,
 		loc:     loc,
 		version: version,
+		demo:    deps.Demo,
 		state:   StateLoading,
 		gen:     0,
 		spinner: ui.NewSpinner(ui.NewStyles(!deps.Config.NoColor)),

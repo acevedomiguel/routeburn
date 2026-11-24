@@ -265,7 +265,7 @@ func TestHelpOverlayIsCentered(t *testing.T) {
 	opts := ViewOptions{Width: 100, Height: 40, Styles: plainStyles(), Now: fixedNow(), Version: "1.2.3", HelpVisible: true}
 	out := HelpOverlay(Render(&snap, opts), opts)
 	lines := strings.Split(out, "\n")
-	marker := "╭─┬ RouteBurn help"
+	marker := "╭─ RouteBurn help"
 	top := -1
 	left := 0
 	popupWidth := 0

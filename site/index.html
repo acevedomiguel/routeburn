@@ -47,32 +47,63 @@
       <a class="button button-primary" href="#install">Install RouteBurn</a>
       <a class="button button-secondary" href="https://github.com/acevedomiguel/routeburn">View on GitHub</a>
     </p>
+    <p class="hero-try">Try it without a key: <code>routeburn demo</code> renders the dashboard on synthetic data.</p>
   </section>
 
   <section class="preview" aria-labelledby="preview-title">
     <h2 id="preview-title" class="visually-hidden">Terminal preview</h2>
     <figure class="terminal-figure">
-      <picture>
-        <source srcset="assets/images/terminal-demo.avif" type="image/avif">
-        <source srcset="assets/images/terminal-demo.webp" type="image/webp">
-        <img src="assets/images/terminal-demo.webp" width="1280" height="800"
-             alt="RouteBurn terminal dashboard with a left sidebar of panels — credits with remaining balance, runway and daily burn, last-30-days totals, token split, and cost by model — beside a full-height daily spend table whose rows carry heat-coloured inline bars from green to red.">
-      </picture>
-      <figcaption>Synthetic example data — no real account figures.</figcaption>
+      <div class="terminal-window">
+        <div class="terminal-bar" aria-hidden="true">
+          <span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-dot"></span>
+          <span class="terminal-title">routeburn demo</span>
+        </div>
+        <picture>
+          <source srcset="assets/images/terminal-demo.avif" type="image/avif">
+          <source srcset="assets/images/terminal-demo.webp" type="image/webp">
+          <img src="assets/images/terminal-demo.webp" width="1280" height="800"
+               alt="RouteBurn terminal dashboard under a centred title: a left sidebar of panels — credits with remaining balance, runway and daily burn, last-30-days totals, token split, and cost by model — beside a full-height daily spend table whose rows carry heat-coloured inline bars from green to red.">
+        </picture>
+      </div>
+      <figcaption>Captured from <code>routeburn demo</code> — synthetic example data, no real account figures.</figcaption>
     </figure>
   </section>
 
   <section id="features" aria-labelledby="features-title">
     <h2 id="features-title">Features</h2>
-    <ul class="feature-list">
-      <li><strong>Credit balance and recent cost monitoring.</strong> Remaining account credit as a single figure, plus spend, requests, tokens, and cache-hit rate for the last 30 days.</li>
-      <li><strong>Daily spend table.</strong> 30 daily UTC buckets as a scrollable table — date, spend, tokens, requests, and cache hit rate, newest first, with a pinned total row and an inline per-day meter heat-coloured green to red by share of the peak day. Days stay in UTC so the figures match the OpenRouter dashboard.</li>
-      <li><strong>Cost by model.</strong> Model spend for the same window, ranked with an inline proportional meter and an <code>Other (remaining)</code> rollup.</li>
-      <li><strong>Credit-runway estimate.</strong> Days until the balance reaches zero at the recent burn rate, with low-confidence and edge cases labelled instead of guessed.</li>
-      <li><strong>Built on Charm v2.</strong> The help bar, refresh spinner, pagination dots, and the daily table are Charm components in a full-screen alternate-screen layout; on wide terminals the panels stack in a sidebar beside the table.</li>
-      <li><strong>Offline snapshot cache.</strong> The last successful refresh renders immediately on startup, explicitly labelled with its age.</li>
-      <li><strong>Scriptable.</strong> <code>routeburn --json</code> prints a versioned snapshot for scripts and dashboards.</li>
-      <li><strong>Polite API usage.</strong> Configurable refresh interval with a 10-second minimum, plus server-directed throttling when OpenRouter asks to slow down.</li>
+    <ul class="feature-grid">
+      <li>
+        <h3>Credit balance and recent spend</h3>
+        <p>Remaining account credit as a single figure, plus spend, requests, tokens, and cache-hit rate for the last 30 days.</p>
+      </li>
+      <li>
+        <h3>Credit-runway estimate</h3>
+        <p>Days until the balance reaches zero at the recent burn rate, with low-confidence and edge cases labelled instead of guessed.</p>
+      </li>
+      <li>
+        <h3>Daily spend table</h3>
+        <p>30 UTC days, newest first, with a pinned total and heat-coloured bars from green to red. <kbd>Tab</kbd> focuses it; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> page through it.</p>
+      </li>
+      <li>
+        <h3>Cost by model</h3>
+        <p>Model spend for the same window, ranked with an inline proportional meter and an <code>Other (remaining)</code> rollup.</p>
+      </li>
+      <li>
+        <h3>Built on Charm v2</h3>
+        <p>Bordered panels under a centred title, a help bar, refresh spinner, and a <kbd>?</kbd> help popup over the dashboard — <kbd>Esc</kbd> closes it. Wide terminals get a sidebar beside the table.</p>
+      </li>
+      <li>
+        <h3>Offline snapshot cache</h3>
+        <p>The last successful refresh renders immediately on startup, explicitly labelled with its age.</p>
+      </li>
+      <li>
+        <h3>Scriptable</h3>
+        <p><code>routeburn --json</code> prints a versioned snapshot for scripts and dashboards.</p>
+      </li>
+      <li>
+        <h3>Polite API usage</h3>
+        <p>Configurable refresh interval with a 10-second minimum, plus server-directed throttling when OpenRouter asks to slow down.</p>
+      </li>
     </ul>
   </section>
 
@@ -204,6 +235,13 @@ depletion_date = start of today + ceil(days_remaining) days</code></pre>
     <h3>Can I use it without Homebrew?</h3>
     <p>Yes. Install with <code>go install</code> or download a prebuilt archive from the
     <a href="https://github.com/acevedomiguel/routeburn/releases/latest">releases page</a>.</p>
+  </section>
+
+  <section id="sibling" aria-labelledby="sibling-title">
+    <h2 id="sibling-title">Also on Kimi Code?</h2>
+    <p><a href="https://acevedomiguel.github.io/kimiburn/">Kimiburn</a> is RouteBurn's sibling: the
+    same read-only terminal dashboard idea for Kimi Code membership quotas — the 5-hour window,
+    the monthly membership, and a local runway estimate for each.</p>
   </section>
 
   <section id="contribute" aria-labelledby="contribute-title">
