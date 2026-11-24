@@ -1,3 +1,9 @@
+## [1.5.0](https://github.com/acevedomiguel/routeburn/compare/v1.4.1...v1.5.0) (2026-11-24)
+
+### Features
+
+* add a title row and tab title, refresh the readme and site ([#25](https://github.com/acevedomiguel/routeburn/issues/25)) ([b5c4ea2](https://github.com/acevedomiguel/routeburn/commit/b5c4ea2cfbbdd87d0f5b2481dcc55fd517a05568))
+
 ## [1.4.1](https://github.com/acevedomiguel/routeburn/compare/v1.4.0...v1.4.1) (2026-11-23)
 
 ### Bug Fixes
