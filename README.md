@@ -192,6 +192,21 @@ section is still present in `--json` when a regular key is configured.
 Token counts are not credit balances. The number of tokens a credit buys depends
 on the model mix.
 
+### Why every day is a UTC day
+
+RouteBurn buckets and labels days in UTC on purpose, so its numbers match the
+OpenRouter dashboard and the API behind it. `POST /analytics/query` returns day
+buckets as UTC midnights and has no timezone field; asking for one (or for
+`hour` granularity) drops the query off the daily rollups and onto raw
+generations, which is capped at 31 days and can return partial values. Local
+days would therefore mean different totals from OpenRouter's own figures, so
+RouteBurn keeps UTC for the table, the 30-day totals, and the runway window.
+Only the runway depletion *date* is rendered in local time, because that is a
+calendar calculation rather than an API value.
+
+If you need local-day totals, sum OpenRouter's hourly data yourself; RouteBurn
+will not show a number that disagrees with the source it reads.
+
 ## Runway formula
 
 ```text
@@ -201,7 +216,9 @@ depletion_date = start of today + ceil(days_remaining) days
 ```
 
 The window deliberately excludes the current partial day, so a dashboard opened
-at 02:00 cannot mistake two hours of spend for a whole day. Every branch is
+at 02:00 cannot mistake two hours of spend for a whole day. Days are UTC days,
+matching the OpenRouter dashboard — see
+[Why every day is a UTC day](#why-every-day-is-a-utc-day). Every branch is
 labelled instead of guessed:
 
 | Situation | Displayed |
