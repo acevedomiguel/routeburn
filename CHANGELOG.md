@@ -1,3 +1,9 @@
+## [1.5.1](https://github.com/acevedomiguel/routeburn/compare/v1.5.0...v1.5.1) (2026-11-24)
+
+### Bug Fixes
+
+* authenticate homebrew tap push with tap token ([#26](https://github.com/acevedomiguel/routeburn/issues/26)) ([e7c8db6](https://github.com/acevedomiguel/routeburn/commit/e7c8db6bef7790722b3fa4da438c6c974522ff16))
+
 ## [1.5.0](https://github.com/acevedomiguel/routeburn/compare/v1.4.1...v1.5.0) (2026-11-24)
 
 ### Features
