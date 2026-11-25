@@ -18,9 +18,15 @@ import (
 
 // Model is the Bubble Tea model for the whole application.
 type Model struct {
-	cfg   Config
-	creds Creds
+	cfg Config
+
+	// apiMu guards api. A fetch command runs on its own goroutine and reads the
+	// client, while replacing the management key swaps it from Update, so the
+	// pair must be synchronized.
+	apiMu sync.RWMutex
 	api   API
+
+	creds Creds
 	cache *cache.Store
 	save  func(domain.Snapshot) error
 	now   func() time.Time
@@ -50,20 +56,84 @@ type Model struct {
 	tableOffset  int
 	tableFocused bool
 
+	// tickGen identifies the pending automatic-refresh timer. Advancing it
+	// supersedes the previous timer without disturbing an in-flight refresh,
+	// which has its own generation.
+	tickGen int
+
+	// Settings overlay state and the side effects it drives.
+	settingsVisible     bool
+	settingsSavedScroll int
+	intervalOptions     []time.Duration
+	setInterval         func(time.Duration) error
+	intervalPinned      bool
+	validateKey         func(context.Context, string) error
+	saveKey             func(context.Context, string) error
+	rebuildAPI          func(management, apiKey string) (API, error)
+	envKey              bool
+	settingsFocus       int
+	settingsIndex       int
+	keyInput            string
+	keyEditing          bool
+	keySaving           bool
+	settingsMsg         string
+	settingsErr         bool
+	// keyGen stamps management-key replacement attempts so a slow one cannot
+	// overwrite the result of a newer one the operator submitted afterwards.
+	keyGen int
+	// keyRefreshPending is set when a saved key started a forced read, so the
+	// overlay's progress notice can be replaced by that read's outcome.
+	keyRefreshPending bool
+
 	gen int
 
 	spinner spinner.Model
 
 	cancelMu    sync.Mutex
 	cancelFetch context.CancelFunc
+	cancelGen   int
 
 	fetchFn func(context.Context, FetchOptions) (domain.Snapshot, error)
 }
 
-// setCancel records the cancel function of the running fetch so quit can stop it.
-func (m *Model) setCancel(cancel context.CancelFunc) {
+// currentAPI returns the API client in use. It is safe to call from a fetch
+// goroutine.
+func (m *Model) currentAPI() API {
+	m.apiMu.RLock()
+	defer m.apiMu.RUnlock()
+	return m.api
+}
+
+// setAPI replaces the API client, used when the management key is replaced.
+func (m *Model) setAPI(api API) {
+	m.apiMu.Lock()
+	m.api = api
+	m.apiMu.Unlock()
+}
+
+// setCancel records the cancel function of the running fetch so quit can stop
+// it, tagged with the refresh generation that owns it. Registration is
+// monotonic: a command whose goroutine starts late carries an older generation
+// and must not displace the newer request that replaced it.
+func (m *Model) setCancel(gen int, cancel context.CancelFunc) {
 	m.cancelMu.Lock()
-	m.cancelFetch = cancel
+	if gen >= m.cancelGen {
+		m.cancelFetch = cancel
+		m.cancelGen = gen
+	}
+	m.cancelMu.Unlock()
+}
+
+// clearCancel releases the cancel slot, but only when it still belongs to gen.
+// A superseded fetch finishes long after a newer one has registered, and it
+// must not unregister the newer fetch's cancel function: that would leave the
+// replacement request uncancellable.
+func (m *Model) clearCancel(gen int) {
+	m.cancelMu.Lock()
+	if m.cancelGen == gen {
+		m.cancelFetch = nil
+		m.cancelGen = 0
+	}
 	m.cancelMu.Unlock()
 }
 
@@ -72,6 +142,7 @@ func (m *Model) cancelInFlight() {
 	m.cancelMu.Lock()
 	cancel := m.cancelFetch
 	m.cancelFetch = nil
+	m.cancelGen = 0
 	m.cancelMu.Unlock()
 
 	if cancel != nil {
@@ -116,6 +187,28 @@ type Deps struct {
 	Demo bool
 	// Fetch overrides the default snapshot builder (tests).
 	Fetch func(context.Context, FetchOptions) (domain.Snapshot, error)
+
+	// IntervalOptions are the selectable automatic-refresh intervals, in
+	// ascending order. Nil selects ui.DefaultIntervalOptions.
+	IntervalOptions []time.Duration
+	// SetInterval persists an interval choice to the active configuration
+	// file. Nil makes the choice session-only, which is what demo mode uses.
+	SetInterval func(time.Duration) error
+	// IntervalPinned is true when a flag or environment variable outranks the
+	// saved file, so a change applies now but not on the next start.
+	IntervalPinned bool
+	// ValidateKey checks a candidate management key with one bounded read. A
+	// nil ValidateKey, SaveKey, or RebuildAPI disables in-app key replacement.
+	ValidateKey func(context.Context, string) error
+	// SaveKey stores a management key that ValidateKey has already accepted,
+	// replacing the previous one.
+	SaveKey func(context.Context, string) error
+	// RebuildAPI builds a fresh API client for a replaced management key, so
+	// the new credential takes effect without a restart.
+	RebuildAPI func(management, apiKey string) (API, error)
+	// EnvKey is true when ROUTEBURN_MANAGEMENT_KEY supplies the key, so an
+	// in-app replacement cannot take effect until it is unset.
+	EnvKey bool
 }
 
 // New builds the initial model.
@@ -133,6 +226,11 @@ func New(deps Deps) *Model {
 		version = "dev"
 	}
 
+	intervalOptions := deps.IntervalOptions
+	if len(intervalOptions) == 0 {
+		intervalOptions = ui.DefaultIntervalOptions()
+	}
+
 	m := &Model{
 		cfg:     deps.Config,
 		creds:   Creds{Management: deps.Creds.Management, APIKey: deps.Creds.APIKey},
@@ -145,12 +243,21 @@ func New(deps Deps) *Model {
 		state:   StateLoading,
 		gen:     0,
 		spinner: ui.NewSpinner(ui.NewStyles(!deps.Config.NoColor)),
+
+		intervalOptions: intervalOptions,
+		setInterval:     deps.SetInterval,
+		intervalPinned:  deps.IntervalPinned,
+		validateKey:     deps.ValidateKey,
+		saveKey:         deps.SaveKey,
+		rebuildAPI:      deps.RebuildAPI,
+		envKey:          deps.EnvKey,
+		settingsIndex:   intervalIndexFor(deps.Config.RefreshInterval, intervalOptions),
 	}
 	if deps.Fetch != nil {
 		m.fetchFn = deps.Fetch
 	} else {
 		m.fetchFn = func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
-			return FetchSnapshot(ctx, m.api, opts)
+			return FetchSnapshot(ctx, m.currentAPI(), opts)
 		}
 	}
 
@@ -266,29 +373,26 @@ func (m *Model) refreshCommands() tea.Cmd {
 	now := m.now()
 	loc := m.loc
 	fetch := m.fetchFn
-	cacheStore := m.cache
-	noCache := m.cfg.NoCache
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		m.setCancel(cancel)
-		defer m.setCancel(nil)
+		m.setCancel(gen, cancel)
+		defer m.clearCancel(gen)
 
 		snap, err := fetch(ctx, FetchOptions{
 			Now:      now,
 			Location: loc,
 			Previous: previous,
 		})
-		if err == nil && cacheStore != nil && !noCache {
-			// A cache failure must never fail the refresh.
-			_ = cacheStore.Save(snap)
-		}
 		return snapshotLoadedMsg{gen: gen, snapshot: snap, err: err}
 	}
 }
 
-// scheduleTick arms the single automatic refresh timer.
+// scheduleTick arms the single automatic refresh timer. Advancing the tick
+// generation supersedes any pending timer, so changing the interval never
+// leaves two schedules running; an in-flight refresh keeps its own generation
+// and is unaffected.
 func (m *Model) scheduleTick() tea.Cmd {
 	if m.cfg.RefreshInterval <= 0 {
 		return nil
@@ -299,7 +403,8 @@ func (m *Model) scheduleTick() tea.Cmd {
 			return nil
 		}
 	}
-	gen := m.gen
+	m.tickGen++
+	gen := m.tickGen
 	return tea.Tick(delay, func(time.Time) tea.Msg {
 		return tickMsg{gen: gen}
 	})
@@ -312,10 +417,11 @@ func fetchOnce(ctx context.Context, api API, opts FetchOptions) (domain.Snapshot
 
 // NextRefreshAllowed reports the client's server-directed throttle.
 func (m *Model) NextRefreshAllowedFromServer() time.Time {
-	if m.api == nil {
+	api := m.currentAPI()
+	if api == nil {
 		return time.Time{}
 	}
-	return m.api.NextRefreshAllowedAt()
+	return api.NextRefreshAllowedAt()
 }
 
 // Ensure err is referenced in this file for clarity of intent.

@@ -40,6 +40,11 @@ current burn rate.
 - Runway estimate from the previous 30 complete UTC days of spend.
 - Cached snapshot on startup, explicitly labelled with its age when stale.
 - Automatic refresh every 10 seconds by default, plus a throttled manual refresh.
+  The in-app Settings overlay (`s`) changes the interval to 10s, 30s, 1m, 5m, or
+  10m and saves it to the configuration file.
+- Replace the management key without leaving the dashboard: the Settings overlay
+  validates a new key with one bounded read before storing it, then rebuilds the
+  client and refreshes immediately.
 - Renders from 60 columns up, and says so plainly when the terminal is smaller.
 - Versioned `--json` snapshot for scripts and dashboards.
 
@@ -197,6 +202,13 @@ routeburn
 Environment credentials are used as-is and are never copied into persistent
 storage automatically.
 
+Replace the management key later without leaving the dashboard: press `s` to
+open Settings, choose **Management key**, and enter the new value. It is hidden
+as you type, checked with one live read, and stored only after that read
+succeeds; the previous key stays in place otherwise. When
+`ROUTEBURN_MANAGEMENT_KEY` is set it wins, so the overlay explains that it must
+be unset before a key can be stored here.
+
 ## Dashboard fields
 
 | Field | Meaning |
@@ -290,6 +302,12 @@ built-in defaults. Environment variables: `ROUTEBURN_REFRESH_INTERVAL`,
 `ROUTEBURN_THEME`, `ROUTEBURN_COLOR`, `ROUTEBURN_KEYRING`,
 `ROUTEBURN_MANAGEMENT_KEY`, `ROUTEBURN_API_KEY`, `OPENROUTER_API_KEY`.
 
+The in-app Settings overlay writes only `refresh_interval` back to the active
+configuration file (the `--config` path when given) and preserves every other
+key; the file stays `0600`. If `--refresh` or `ROUTEBURN_REFRESH_INTERVAL` is
+set, that override still wins on the next start, and the overlay says so. A
+non-interactive process can always edit the YAML directly.
+
 `routeburn config reset` rewrites the sample configuration.
 
 ## Credential storage
@@ -303,6 +321,19 @@ Resolution order for the management key:
 
 The regular API key follows the same chain, with `OPENROUTER_API_KEY` accepted
 between the two environment variables.
+
+Storing a key clears the backend it did not use, so a replaced key is not
+resolved again: the fallback file is removed before the keyring is written, and
+the keyring entry is cleared when the fallback file is the backend that took the
+value. If the fallback cannot be cleared, or the keyring is reachable but
+refuses to release a stale entry that would shadow the new value, the store
+reports a failure instead of a success that would not take effect.
+
+The one exception is `keyring: false`: RouteBurn holds no handle to the keyring
+in that mode, so an entry stored there earlier is left untouched and the
+fallback file is what resolves. Switching the keyring back on can therefore
+surface that older entry. Clear it first — with the keyring enabled, run
+`routeburn logout`, or remove the `routeburn` entry in the OS credential store.
 
 A fallback file that is group- or world-readable is refused rather than read,
 and the error never prints the secret. `routeburn logout` deletes only
@@ -378,18 +409,25 @@ Cached data can be stale. A cached runway estimate is never presented as live.
 | Key | Action |
 | --- | --- |
 | `r` | Refresh now (throttled to one batch per 10 seconds) |
+| `s` | Open Settings (refresh interval and management key) |
 | `j` / `Down` | Scroll down in the dashboard, or in the Help popup when it is open |
 | `k` / `Up` | Scroll up in the dashboard or Help popup |
 | `PgDn` / `PgUp` | Scroll one screen |
 | `?` | Toggle the Help popup |
-| `Esc` | Close the Help popup, or quit when it is closed |
-| `q` | Close the Help popup, or quit when it is closed |
+| `Esc` | Close the Help or Settings popup, or quit when none is open |
+| `q` | Close the Help or Settings popup, or quit when none is open |
 | `Ctrl+C` | Quit |
 
 Help opens as a centered, rounded popup above the dashboard. It includes the
 full key reference and an **About RouteBurn** section with the current version,
 repository, maintainer, and contact information. While Help is open, scrolling
 keys affect only the popup and the footer lists the available popup actions.
+
+Settings opens the same way. In it, `↑`/`↓` (or `j`/`k`) pick a row, `←`/`→`
+(or `h`/`l`) or a number key 1–5 chooses the refresh interval, and Enter starts a
+management-key entry. While typing a key the letters are key content, so only
+Enter saves, Esc cancels, and Ctrl+C quits. `Esc`, `q`, or `s` closes Settings
+and returns to the dashboard at the same scroll position.
 
 The menu bar on the last row always lists the keys that actually work. The body
 is fitted to the frame at every supported size, so scrolling only engages on a

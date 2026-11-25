@@ -212,13 +212,34 @@ type runtime struct {
 	opts   options
 	cfg    config.Config
 	creds  credentials.Creds
+	store  *credentials.Store
 	client *or.Client
 	cache  *cache.Store
 	now    func() time.Time
+	paths  config.Paths
+}
+
+// configTarget is the configuration file a Settings change is written back to:
+// the explicit --config path when given, the platform default otherwise.
+func (r *runtime) configTarget() string {
+	if r.opts.configPath != "" {
+		return r.opts.configPath
+	}
+	return r.paths.ConfigFile
 }
 
 // errNoCredentials signals the documented exit code 3.
 var errNoCredentials = errors.New("no credentials configured")
+
+// newAPIClient builds the OpenRouter client from explicit credentials. Tests
+// replace it so no test reaches the network.
+var newAPIClient = func(management, apiKey string) (*or.Client, error) {
+	return or.NewClient(
+		or.WithManagementKey(management),
+		or.WithAPIKey(apiKey),
+		or.WithVersion(version),
+	)
+}
 
 // buildRuntime resolves configuration and credentials. It returns
 // errNoCredentials (exit 3) when the management key is missing.
@@ -241,12 +262,13 @@ func buildRuntime(opts options, paths config.Paths) (*runtime, error) {
 		return nil, err
 	}
 
-	creds, err := credentials.NewStore(credentials.Options{
+	store := credentials.NewStore(credentials.Options{
 		Keyring:             osKeyringFor(cfg),
 		ManagementTokenFile: paths.ManagementTokenFile(),
 		APIKeyFile:          paths.APIKeyFile(),
 		KeyringEnabled:      cfg.Keyring,
-	}).Resolve(context.Background())
+	})
+	creds, err := store.Resolve(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -254,27 +276,25 @@ func buildRuntime(opts options, paths config.Paths) (*runtime, error) {
 		return nil, errNoCredentials
 	}
 
-	client, err := or.NewClient(
-		or.WithManagementKey(creds.Management),
-		or.WithAPIKey(creds.APIKey),
-		or.WithVersion(version),
-	)
+	client, err := newAPIClient(creds.Management, creds.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	var store *cache.Store
+	var cacheStore *cache.Store
 	if !opts.noCache {
-		store = cache.NewStore(paths.CacheFile)
+		cacheStore = cache.NewStore(paths.CacheFile)
 	}
 
 	return &runtime{
 		opts:   opts,
 		cfg:    cfg,
 		creds:  creds,
+		store:  store,
 		client: client,
-		cache:  store,
+		cache:  cacheStore,
 		now:    func() time.Time { return time.Now().UTC() },
+		paths:  paths,
 	}, nil
 }
 

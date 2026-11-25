@@ -114,12 +114,12 @@ func TestKeyMapMatchesHandledKeys(t *testing.T) {
 			}
 		}
 	}
-	for _, handled := range []string{"r", "j", "k", "up", "down", "pgup", "pgdown", "?", "esc", "q"} {
+	for _, handled := range []string{"r", "s", "j", "k", "up", "down", "pgup", "pgdown", "?", "esc", "q"} {
 		if !advertised[handled] {
 			t.Errorf("key %q is handled but not advertised", handled)
 		}
 	}
-	for _, notHandled := range []string{"export", "settings", "analyze", "e", "s"} {
+	for _, notHandled := range []string{"export", "analyze", "e", "x"} {
 		if advertised[notHandled] {
 			t.Errorf("key %q is advertised but not handled", notHandled)
 		}

@@ -14,6 +14,13 @@ type fakeKeyring struct {
 	values map[string]string
 	fail   bool
 	failOn error
+
+	// setErr and deleteErr fail a single operation while the others keep
+	// working, which is what a partially reachable OS keyring looks like. The
+	// real keyring reports every failure as "unavailable", so tests must be
+	// able to make Get succeed while Set or Delete fails.
+	setErr    error
+	deleteErr error
 }
 
 func newFakeKeyring() *fakeKeyring { return &fakeKeyring{values: map[string]string{}} }
@@ -33,6 +40,9 @@ func (f *fakeKeyring) Set(service, user, secret string) error {
 	if f.fail {
 		return ErrKeyringUnavailable
 	}
+	if f.setErr != nil {
+		return f.setErr
+	}
 	f.values[service+"/"+user] = secret
 	return nil
 }
@@ -40,6 +50,9 @@ func (f *fakeKeyring) Set(service, user, secret string) error {
 func (f *fakeKeyring) Delete(service, user string) error {
 	if f.fail {
 		return ErrKeyringUnavailable
+	}
+	if f.deleteErr != nil {
+		return f.deleteErr
 	}
 	delete(f.values, service+"/"+user)
 	return nil
@@ -184,6 +197,196 @@ func TestSaveCreatesRestrictiveFileWhenKeyringDisabled(t *testing.T) {
 	}
 }
 
+// A successful keyring write must clear the fallback file. Resolution prefers
+// the keyring, so leaving the file behind would let a later launch with an
+// unreachable keyring resurrect the credential that was just replaced.
+func TestSaveRemovesTheStaleFallbackFileAfterAKeyringWrite(t *testing.T) {
+	kr := newFakeKeyring()
+	s, dir := newStore(t, kr)
+	if err := kr.Set("routeburn", "management", "old-key"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "management-token")
+	if err := os.WriteFile(path, []byte("old-key"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the stale fallback file must be removed: %v", err)
+	}
+
+	creds, err := s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "new-key" {
+		t.Fatalf("management = %q, want the saved key", creds.Management)
+	}
+
+	// With the keyring unreachable the replaced value must not come back.
+	kr.fail = true
+	creds, err = s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "" {
+		t.Errorf("management = %q, want no stale key after the fallback was removed", creds.Management)
+	}
+}
+
+// When the keyring cannot take the write, the value goes to the fallback file
+// and the stale keyring entry is cleared so it cannot shadow the file.
+func TestSaveFallsBackToTheFileAndClearsTheKeyringEntry(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.setErr = errors.New("keyring: transient failure")
+	kr.values["routeburn/management"] = "old-key"
+	s, dir := newStore(t, kr)
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, ok := kr.values["routeburn/management"]; ok {
+		t.Error("the stale keyring entry must be cleared")
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "management-token"))
+	if err != nil || string(raw) != "new-key" {
+		t.Fatalf("fallback file = %q, %v", raw, err)
+	}
+
+	// With the keyring healthy again the file value must still win.
+	kr.setErr = nil
+	creds, err := s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "new-key" {
+		t.Errorf("management = %q, want the file value", creds.Management)
+	}
+}
+
+// A keyring entry that survives the delete still shadows the file, so the save
+// must report failure instead of a success that will not take effect.
+func TestSaveRefusesWhenTheKeyringStillShadowsTheFile(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.setErr = errors.New("keyring: locked")
+	kr.deleteErr = errors.New("keyring: locked")
+	kr.values["routeburn/management"] = "old-key"
+	s, dir := newStore(t, kr)
+
+	err := s.Save(context.Background(), KindManagement, "new-key")
+	if err == nil {
+		t.Fatal("expected a failure when the keyring entry cannot be replaced")
+	}
+	if strings.Contains(err.Error(), "new-key") || strings.Contains(err.Error(), "old-key") {
+		t.Errorf("the error must not leak a key: %v", err)
+	}
+
+	// The fallback is rewritten after the keyring refuses the write, so the new
+	// value is durable even though the call reported failure.
+	raw, readErr := os.ReadFile(filepath.Join(dir, "management-token"))
+	if readErr != nil || string(raw) != "new-key" {
+		t.Fatalf("fallback file = %q, %v", raw, readErr)
+	}
+}
+
+// A fallback file that cannot be cleared must abort the save before the keyring
+// is touched. Writing the keyring first would make the reported failure a lie:
+// the caller would keep using the old key while the store held the new one.
+func TestSaveAbortsBeforeTheKeyringWhenTheStaleFallbackCannotBeCleared(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.values["routeburn/management"] = "old-key"
+
+	// The fallback path is a non-empty directory so removal fails on every
+	// platform. A path through a regular file would not do: Windows reports it
+	// as "not exist", which removal treats as already gone.
+	dir := t.TempDir()
+	blocked := filepath.Join(dir, "management-token")
+	if err := os.MkdirAll(blocked, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(blocked, "keep"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Removal must fail for a reason other than "already gone": tolerating
+	// ErrNotExist is correct, so the test has to produce a real failure.
+	if err := os.Remove(blocked); err == nil || errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("test setup: the fallback must be unremovable, got err=%v", err)
+	}
+
+	s := NewStore(Options{
+		Keyring:             kr,
+		ManagementTokenFile: blocked,
+		APIKeyFile:          filepath.Join(dir, "api-key"),
+		KeyringEnabled:      true,
+	})
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err == nil {
+		t.Fatal("expected the save to fail when the stale fallback cannot be cleared")
+	}
+	if kr.values["routeburn/management"] != "old-key" {
+		t.Errorf("the keyring must be left untouched, got %q", kr.values["routeburn/management"])
+	}
+}
+
+// Without a keyring the file is the only backend, and an unwritable path must
+// surface as an error rather than an apparent success.
+func TestSaveWithoutAKeyringReportsAFailedFallbackWrite(t *testing.T) {
+	dir := t.TempDir()
+	blocked := filepath.Join(dir, "management-token")
+	if err := os.MkdirAll(blocked, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(blocked, "keep"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(Options{
+		ManagementTokenFile: blocked,
+		APIKeyFile:          filepath.Join(dir, "api-key"),
+	})
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err == nil {
+		t.Fatal("expected the save to fail")
+	}
+}
+
+// With the keyring disabled the store has no handle to it, so an entry stored
+// there earlier cannot be cleared and stays put. The file is authoritative for
+// as long as the keyring is off, which is what resolution must reflect.
+func TestSaveWithoutAKeyringLeavesTheKeyringEntryAlone(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.values["routeburn/management"] = "old-keyring-value"
+	dir := t.TempDir()
+	s := NewStore(Options{
+		Keyring:             kr,
+		ManagementTokenFile: filepath.Join(dir, "management-token"),
+		APIKeyFile:          filepath.Join(dir, "api-key"),
+		KeyringEnabled:      false,
+	})
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "management-token"))
+	if err != nil || string(raw) != "new-key" {
+		t.Fatalf("fallback file = %q, %v", raw, err)
+	}
+	if kr.values["routeburn/management"] != "old-keyring-value" {
+		t.Errorf("keyring entry = %q, want it left untouched", kr.values["routeburn/management"])
+	}
+
+	// While the keyring is off, the file is what resolves.
+	creds, err := s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "new-key" {
+		t.Errorf("management = %q, want the file value", creds.Management)
+	}
+}
+
 func TestSaveRejectsEmptySecret(t *testing.T) {
 	s, _ := newStore(t, newFakeKeyring())
 	if err := s.Save(context.Background(), KindManagement, "   "); err == nil {
@@ -268,5 +471,77 @@ func TestCredsHasHelpers(t *testing.T) {
 	got := c.Redacted()
 	if got != "management=true api_key=true" {
 		t.Errorf("Redacted = %q", got)
+	}
+}
+
+// syntheticKey is invented for tests. It is never a real credential.
+const syntheticKey = "sk-or-v1-" + "testonly0000" + "abcdefgh"
+
+// A Redactor hides the exact configured key even when it does not look like a
+// key, in raw and URL-escaped forms, and never leaks it back.
+func TestRedactorRemovesExactConfiguredKey(t *testing.T) {
+	r := NewRedactor(syntheticKey)
+	inputs := []string{
+		"validation failed for " + syntheticKey,
+		"Authorization: Bearer " + syntheticKey,
+		"GET /credits?key=" + syntheticKey,
+		"error: " + syntheticKey + " expired",
+	}
+	for _, in := range inputs {
+		out := r.Redact(in)
+		if strings.Contains(out, syntheticKey) {
+			t.Errorf("Redact(%q) = %q, still contains the key", in, out)
+		}
+		if !strings.Contains(out, "[redacted]") {
+			t.Errorf("Redact(%q) = %q, should mark the redaction", in, out)
+		}
+	}
+}
+
+// A key whose shape does not match the documented prefix is still hidden,
+// because the redactor matches the exact configured value.
+func TestRedactorHidesNonStandardKeyShape(t *testing.T) {
+	const opaque = "totally-opaque-key-value"
+	r := NewRedactor(opaque)
+	out := r.Redact("the server rejected " + opaque + " today")
+	if strings.Contains(out, opaque) {
+		t.Fatalf("Redact = %q, leaked the opaque key", out)
+	}
+}
+
+// A nil receiver still scrubs the generic shapes, so a missing configuration
+// never disables redaction.
+func TestNilRedactorStillRedactsGenericShapes(t *testing.T) {
+	var r *Redactor
+	out := r.Redact("Authorization: Bearer " + syntheticKey)
+	if strings.Contains(out, syntheticKey) {
+		t.Fatalf("nil Redact = %q, leaked the key", out)
+	}
+}
+
+// Empty and whitespace-only values are ignored rather than becoming a
+// match-everything pattern.
+func TestRedactorIgnoresEmptySecrets(t *testing.T) {
+	r := NewRedactor("", "   ", syntheticKey)
+	if got := r.Redact("nothing sensitive here"); got != "nothing sensitive here" {
+		t.Errorf("Redact changed a clean string: %q", got)
+	}
+}
+
+// ManagementFromEnvironment reports whether the environment supplies the
+// management key, without handing the secret back.
+func TestManagementFromEnvironment(t *testing.T) {
+	s := NewStore(Options{Env: map[string]string{}})
+	if s.ManagementFromEnvironment() {
+		t.Error("an empty environment must not report a management key")
+	}
+	s = NewStore(Options{Env: map[string]string{EnvManagementKey: "mgmt"}})
+	if !s.ManagementFromEnvironment() {
+		t.Error("an environment management key must be reported")
+	}
+	// A regular API key never satisfies the management slot.
+	s = NewStore(Options{Env: map[string]string{EnvOpenRouterKey: "api"}})
+	if s.ManagementFromEnvironment() {
+		t.Error("OPENROUTER_API_KEY must not count as a management key")
 	}
 }

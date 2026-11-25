@@ -78,3 +78,14 @@ type fatalErrorMsg struct{ err error }
 
 // noticeMsg shows a transient one-line hint such as a throttle message.
 type noticeMsg struct{ text string }
+
+// keySavedMsg reports the outcome of validating and storing a replacement
+// management key. err is already redacted, so it never carries the key. key is
+// the accepted value, kept only long enough to rebuild the API client, and is
+// never rendered, logged, or serialized. gen identifies the attempt, so a slow
+// one that finishes after a newer submission is discarded.
+type keySavedMsg struct {
+	gen int
+	key string
+	err error
+}

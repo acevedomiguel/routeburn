@@ -111,3 +111,22 @@ to stay visible at 100/110/120/140 columns.
 Note on the footer: the body is fitted to the frame at every supported size, so
 pagination dots are unreachable in practice. The dots code stays as a safety net
 for a terminal shorter than the 16-row minimum.
+
+## Settings overlay
+
+`internal/ui/settings.go` renders a centred, rounded panel above the dashboard,
+reusing the same `panel()` helper and lipgloss compositor as `HelpOverlay`, so
+it sits on the dashboard grid rather than introducing a second frame style.
+
+- The interval row is a bracketed choice list (10s, 30s, 1m, 5m, 10m) with the
+  live selection in square brackets and a muted note naming the active value,
+  including a custom value that is not one of the options.
+- The management-key row renders only a hidden placeholder while typing, never
+  the value. It is disabled when the key comes from the environment or in demo
+  mode, and the note explains why.
+- The footer is the bubbles help model fed by `SettingsKeyMap`, matching the
+  dashboard footer. While a key is being typed only the keys that apply in that
+  mode are listed.
+- Geometry is a contract: `SettingsOverlay` returns exactly `Height` rows, never
+  wider than `Width`, with no ANSI escapes when colour is disabled, and it never
+  moves the dashboard footer off the last row.

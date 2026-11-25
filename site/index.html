@@ -102,7 +102,7 @@
       </li>
       <li>
         <h3>Polite API usage</h3>
-        <p>Configurable refresh interval with a 10-second minimum, plus server-directed throttling when OpenRouter asks to slow down.</p>
+        <p>Configurable refresh interval with a 10-second minimum, adjustable in-app from the <kbd>s</kbd> settings overlay, plus server-directed throttling when OpenRouter asks to slow down.</p>
       </li>
     </ul>
   </section>
@@ -211,8 +211,9 @@ depletion_date = start of today + ceil(days_remaining) days</code></pre>
     network requests, and no credential flow of any kind.</p>
 
     <h3>How often does the app refresh?</h3>
-    <p>Every 10 seconds by default, which is also the minimum interval. Set
-    <code>refresh_interval</code> in the configuration file to a longer duration, or to
+    <p>Every 10 seconds by default, which is also the minimum interval. Press <kbd>s</kbd> to open
+    the settings overlay and pick 10s, 30s, 1m, 5m, or 10m — the choice is saved to the
+    configuration file. You can also set <code>refresh_interval</code> to a longer duration, or to
     <code>0</code> to disable automatic refresh; manual refresh with <code>r</code> stays available
     and is throttled.</p>
 
