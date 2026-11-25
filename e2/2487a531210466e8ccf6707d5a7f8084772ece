@@ -1,0 +1,21 @@
+internal/credentials/credentials_test.go
+  s_36342dde9b619c::t_2ca4feef1efbe8 338-342,346
+  s_36342dde9b619c::t_14ab3c73693927 313-316
+  s_36342dde9b619c::t_ddff6e67384ee0 302-304,306-307,310-312,317-318,321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "e22487a531210466e8ccf6707d5a7f8084772ece",
+  "prompts": {},
+  "sessions": {
+    "s_36342dde9b619c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ded741e2fffeLYAedTk7nnPtkk",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    }
+  }
+}
