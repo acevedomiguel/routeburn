@@ -284,7 +284,7 @@ func TestSaveRefusesWhenTheKeyringStillShadowsTheFile(t *testing.T) {
 		t.Errorf("the error must not leak a key: %v", err)
 	}
 
-	// The fallback file was written before the keyring was touched, so the new
+	// The fallback is rewritten after the keyring refuses the write, so the new
 	// value is durable even though the call reported failure.
 	raw, readErr := os.ReadFile(filepath.Join(dir, "management-token"))
 	if readErr != nil || string(raw) != "new-key" {
@@ -335,6 +335,41 @@ func TestSaveWithoutAKeyringReportsAFailedFallbackWrite(t *testing.T) {
 
 	if err := s.Save(context.Background(), KindManagement, "new-key"); err == nil {
 		t.Fatal("expected the save to fail")
+	}
+}
+
+// With the keyring disabled the store has no handle to it, so an entry stored
+// there earlier cannot be cleared and stays put. The file is authoritative for
+// as long as the keyring is off, which is what resolution must reflect.
+func TestSaveWithoutAKeyringLeavesTheKeyringEntryAlone(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.values["routeburn/management"] = "old-keyring-value"
+	dir := t.TempDir()
+	s := NewStore(Options{
+		Keyring:             kr,
+		ManagementTokenFile: filepath.Join(dir, "management-token"),
+		APIKeyFile:          filepath.Join(dir, "api-key"),
+		KeyringEnabled:      false,
+	})
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "management-token"))
+	if err != nil || string(raw) != "new-key" {
+		t.Fatalf("fallback file = %q, %v", raw, err)
+	}
+	if kr.values["routeburn/management"] != "old-keyring-value" {
+		t.Errorf("keyring entry = %q, want it left untouched", kr.values["routeburn/management"])
+	}
+
+	// While the keyring is off, the file is what resolves.
+	creds, err := s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "new-key" {
+		t.Errorf("management = %q, want the file value", creds.Management)
 	}
 }
 

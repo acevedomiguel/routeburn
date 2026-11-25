@@ -43,6 +43,10 @@ func (s *Store) Save(ctx context.Context, kind Kind, secret string) error {
 	}
 
 	if !s.keyringEnabled {
+		// The keyring is disabled, so NewStore may hold no handle to it and its
+		// entry cannot be cleared here. The file is authoritative while the
+		// keyring stays off; an entry stored there earlier is left alone and can
+		// resurface if the keyring is switched back on.
 		return s.writeFallback(kind, trimmed)
 	}
 

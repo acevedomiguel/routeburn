@@ -231,8 +231,9 @@ func (m *Model) submitKey() (tea.Model, tea.Cmd) {
 	m.keyEditing, m.keySaving = false, true
 	m.settingsMsg, m.settingsErr = "Checking the key…", false
 
-	// Only the newest attempt may apply. The operator can submit again while a
-	// check is in flight, and the older validation may well finish last.
+	// Stamp the attempt so a completion can be matched to its submission. Only
+	// one check runs at a time, because the row stays locked until it settles,
+	// so this is a backstop against a late completion ever applying out of turn.
 	m.keyGen++
 	gen := m.keyGen
 

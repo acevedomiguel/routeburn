@@ -322,12 +322,18 @@ Resolution order for the management key:
 The regular API key follows the same chain, with `OPENROUTER_API_KEY` accepted
 between the two environment variables.
 
-Storing a key clears the other backend, so a replaced key can never be resolved
-again: the fallback file is removed before the keyring is written, and the
-keyring entry is cleared when the fallback file is the backend that took the
+Storing a key clears the backend it did not use, so a replaced key is not
+resolved again: the fallback file is removed before the keyring is written, and
+the keyring entry is cleared when the fallback file is the backend that took the
 value. If the fallback cannot be cleared, or the keyring is reachable but
 refuses to release a stale entry that would shadow the new value, the store
 reports a failure instead of a success that would not take effect.
+
+The one exception is `keyring: false`: RouteBurn holds no handle to the keyring
+in that mode, so an entry stored there earlier is left untouched and the
+fallback file is what resolves. Switching the keyring back on can therefore
+surface that older entry. Clear it first — with the keyring enabled, run
+`routeburn logout`, or remove the `routeburn` entry in the OS credential store.
 
 A fallback file that is group- or world-readable is refused rather than read,
 and the error never prints the secret. `routeburn logout` deletes only
