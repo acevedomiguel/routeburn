@@ -1,0 +1,97 @@
+cmd/routeburn/commands.go
+  s_36342dde9b619c::t_e7578df2daae6f 104-121,137-165
+internal/config/config.go
+  s_36342dde9b619c::t_741ebc2e81b49a 201-271,273
+internal/credentials/credentials_test.go
+  s_36342dde9b619c::t_7ba507f3a2d910 273-344
+internal/ui/render_test.go
+  s_36342dde9b619c::t_bdb4ad7eff08e4 168,173
+internal/app/settings_test.go
+  s_36342dde9b619c::t_77e9c94b760760 1-261,265,267-454,476-489
+  s_36342dde9b619c::t_67379412e7a609 266
+  s_36342dde9b619c::t_f407915748bc71 262-264
+  s_36342dde9b619c::t_2640e0ad06da6b 455-475
+config.example.yaml
+  s_36342dde9b619c::t_81da76f7464e06 17-18
+cmd/routeburn/settings_test.go
+  s_36342dde9b619c::t_f97199e5af4e73 1-194
+README.md
+  s_36342dde9b619c::t_c024c99d1f5594 305-310
+  s_36342dde9b619c::t_8d1b84c86bd933 399,404-405,413-417
+  s_36342dde9b619c::t_395f0609675576 205-211
+  s_36342dde9b619c::t_00be5104d1c270 43-47
+  s_36342dde9b619c::t_4dac9df8de43c3 418
+docs/ui-design.md
+  s_36342dde9b619c::t_2095fbaa21033e 114-132
+internal/ui/settings_test.go
+  s_36342dde9b619c::t_b6e18398d3cc54 1-102,104-118,120-123,128-138,153-169,171-176
+  s_36342dde9b619c::t_2cbac51a232e53 124-127
+  s_36342dde9b619c::t_86c54905f4ceeb 139-152
+  s_36342dde9b619c::t_288b065c50fa5b 119
+  s_36342dde9b619c::t_e8f966a80ffa5b 103,170
+internal/config/config_test.go
+  s_36342dde9b619c::t_07246f095bf5df 220-222,230-354
+  s_36342dde9b619c::t_0c8420472145ca 223-229
+internal/credentials/redact.go
+  s_36342dde9b619c::t_f06309180cbefd 4,6,25-68
+  s_36342dde9b619c::t_9cecae4c1723f1 69
+site/index.html
+  s_36342dde9b619c::t_fe34f9c75d41af 214-216
+  s_36342dde9b619c::t_05d6aa25d73956 105
+internal/app/update.go
+  s_36342dde9b619c::t_4563a381ed6106 47-48
+  s_36342dde9b619c::t_0eb480b970542a 89-92
+  s_36342dde9b619c::t_4fd8e0ad501825 118-120
+  s_36342dde9b619c::t_fff961137022ab 239-240,243-244
+  s_36342dde9b619c::t_694b0d31b3248d 365-367
+  s_36342dde9b619c::t_3d7295b1b28bf1 43-45
+internal/app/model.go
+  s_36342dde9b619c::t_73de5080ee3e91 233
+  s_36342dde9b619c::t_6963066efe81ed 59-81
+  s_36342dde9b619c::t_0ac63d18a352b5 21-26,28-29
+  s_36342dde9b619c::t_16c1fd8c65fa75 92-106
+  s_36342dde9b619c::t_17a9448acffce8 163-184
+  s_36342dde9b619c::t_37fec79c606492 202-206,219-227
+  s_36342dde9b619c::t_b8f42665277af9 371-374,385-386
+  s_36342dde9b619c::t_8a981317cb64b0 399-400,403
+cmd/routeburn/main.go
+  s_36342dde9b619c::t_c47efc6a98589e 215,220,222-228,234-243,265,270-271,279,284,286,293,295,297
+  s_36342dde9b619c::t_9d559870011fd0 219
+  s_36342dde9b619c::t_0632b765857657 221
+internal/ui/settings.go
+  s_36342dde9b619c::t_64be02ce86feea 1-183,186-226
+  s_36342dde9b619c::t_f638b90d582650 184-185
+internal/app/messages.go
+  s_36342dde9b619c::t_47b41211cd8089 81-89
+internal/credentials/store.go
+  s_36342dde9b619c::t_c61a1f374507e0 101-108
+internal/ui/dashboard_test.go
+  s_36342dde9b619c::t_e8ab7967664592 117,122
+internal/ui/keys.go
+  s_36342dde9b619c::t_0e1eaca9489a9a 75-78
+  s_36342dde9b619c::t_0be15e0fa0a4e0 112,118,124-159,164-170,179
+  s_36342dde9b619c::t_bf2c7d744ddff2 12
+  s_36342dde9b619c::t_b0b5dd71c308fd 160-163,174-177
+  s_36342dde9b619c::t_5f5c25bb7b7574 171-173,178
+  s_36342dde9b619c::t_f294aae53f3b67 180
+internal/app/settings.go
+  s_36342dde9b619c::t_a624e5f56953d2 1-86,89-264,266-289
+  s_36342dde9b619c::t_1929fe1081b474 87-88
+  s_36342dde9b619c::t_cdfa9f81778099 265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "f6e3171d70e905e6a48cf4e05d6a7bc07ec04da7",
+  "prompts": {},
+  "sessions": {
+    "s_36342dde9b619c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ded741e2fffeLYAedTk7nnPtkk",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    }
+  }
+}
