@@ -11,6 +11,7 @@
     "release:dry-run": "semantic-release --dry-run",
     "commitlint": "commitlint",
     "check:release-notes": "node scripts/check-release-notes.mjs",
+    "check:module-version": "node --test scripts/check-module-version.test.mjs",
     "check:html": "html-validate \"site/**/*.html\"",
     "check:links": "node tests/site/check-links.mjs",
     "test:site": "playwright test",
