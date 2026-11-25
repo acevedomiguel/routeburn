@@ -322,12 +322,12 @@ Resolution order for the management key:
 The regular API key follows the same chain, with `OPENROUTER_API_KEY` accepted
 between the two environment variables.
 
-Storing a key updates the backend that resolution will read and clears the
-other, so a replaced key can never be resolved again: a successful keyring write
-removes the fallback file, and a fallback write clears the keyring entry. If the
-keyring is reachable but refuses to release a stale entry that would shadow the
-new value, the store reports a failure instead of a success that would not take
-effect.
+Storing a key clears the other backend, so a replaced key can never be resolved
+again: the fallback file is removed before the keyring is written, and the
+keyring entry is cleared when the fallback file is the backend that took the
+value. If the fallback cannot be cleared, or the keyring is reachable but
+refuses to release a stale entry that would shadow the new value, the store
+reports a failure instead of a success that would not take effect.
 
 A fallback file that is group- or world-readable is refused rather than read,
 and the error never prints the secret. `routeburn logout` deletes only

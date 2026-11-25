@@ -62,7 +62,10 @@ func (m *Model) openSettings() {
 	m.settingsSavedScroll = m.scroll
 	m.settingsFocus = 0
 	m.settingsIndex = intervalIndexFor(m.cfg.RefreshInterval, m.intervalOptions)
-	m.keyEditing, m.keyInput, m.keySaving = false, "", false
+	// keySaving is deliberately left alone: a check already in flight still
+	// owns the row, and reopening the overlay must not unlock a second attempt
+	// that would race the first to the credential store.
+	m.keyEditing, m.keyInput = false, ""
 	m.settingsMsg, m.settingsErr = "", false
 }
 
@@ -120,7 +123,10 @@ func (m *Model) handleSettingsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case msg.Code >= '1' && msg.Code <= '9':
 		return m.chooseInterval(int(msg.Code - '1'))
 	case key.Matches(msg, keys.Edit):
-		if m.settingsFocus == 1 && m.keyAvailable() {
+		// Only one attempt may be in flight. Each attempt persists the key
+		// from its own goroutine, so a second concurrent attempt could write
+		// the older key last and outlive the newer one in the store.
+		if m.settingsFocus == 1 && m.keyAvailable() && !m.keySaving {
 			m.keyEditing, m.keyInput = true, ""
 			m.settingsMsg, m.settingsErr = "", false
 		}

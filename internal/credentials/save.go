@@ -27,6 +27,12 @@ func (s *Store) pathFor(kind Kind) string {
 // clears the other backend. Leaving a stale value behind would let a later
 // resolve silently return the credential that was just replaced instead of the
 // one that was saved.
+//
+// The fallback is cleared before the keyring is written, so a fallback that
+// cannot be cleared aborts with neither backend changed and the reported
+// failure stays true. Clearing it also proves the directory is writable, which
+// leaves the rewrite below to fail only on a full disk or an exhausted quota,
+// and only while the keyring is unreadable too.
 func (s *Store) Save(ctx context.Context, kind Kind, secret string) error {
 	trimmed := strings.TrimSpace(secret)
 	if trimmed == "" {
@@ -36,24 +42,33 @@ func (s *Store) Save(ctx context.Context, kind Kind, secret string) error {
 		return err
 	}
 
-	if s.keyringEnabled && s.keyring.Set(ServiceName, string(kind), trimmed) == nil {
-		return s.removeFallback(kind)
+	if !s.keyringEnabled {
+		return s.writeFallback(kind, trimmed)
 	}
 
-	// Write the value durably before touching the keyring, so a failure here
-	// leaves the previously resolvable credential intact.
+	// Clear the fallback before anything else. If it cannot be removed the save
+	// aborts with neither backend changed, so the error the caller reports is
+	// true: reporting "not saved" while the keyring already held the new value
+	// would leave the running session and the store disagreeing.
+	if err := s.removeFallback(kind); err != nil {
+		return err
+	}
+	if s.keyring.Set(ServiceName, string(kind), trimmed) == nil {
+		return nil
+	}
+
+	// The keyring could not take the write, so the file is authoritative. It
+	// has to be rewritten, and the keyring entry cleared so it cannot shadow
+	// the file at the next resolve.
 	if err := s.writeFallback(kind, trimmed); err != nil {
 		return err
 	}
-	if s.keyringEnabled {
-		return s.clearStaleKeyring(kind)
-	}
-	return nil
+	return s.clearStaleKeyring(kind)
 }
 
-// removeFallback deletes the fallback file after the keyring took the value, so
-// the file cannot shadow the new value if the keyring later becomes
-// unavailable. A missing file is not an error.
+// removeFallback deletes the fallback file so a value replaced in the keyring
+// cannot shadow it if the keyring later becomes unavailable. A missing file is
+// not an error.
 func (s *Store) removeFallback(kind Kind) error {
 	path := s.pathFor(kind)
 	if path == "" {

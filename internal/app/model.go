@@ -112,11 +112,15 @@ func (m *Model) setAPI(api API) {
 }
 
 // setCancel records the cancel function of the running fetch so quit can stop
-// it, tagged with the refresh generation that owns it.
+// it, tagged with the refresh generation that owns it. Registration is
+// monotonic: a command whose goroutine starts late carries an older generation
+// and must not displace the newer request that replaced it.
 func (m *Model) setCancel(gen int, cancel context.CancelFunc) {
 	m.cancelMu.Lock()
-	m.cancelFetch = cancel
-	m.cancelGen = gen
+	if gen >= m.cancelGen {
+		m.cancelFetch = cancel
+		m.cancelGen = gen
+	}
 	m.cancelMu.Unlock()
 }
 
@@ -369,8 +373,6 @@ func (m *Model) refreshCommands() tea.Cmd {
 	now := m.now()
 	loc := m.loc
 	fetch := m.fetchFn
-	cacheStore := m.cache
-	noCache := m.cfg.NoCache
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -383,10 +385,6 @@ func (m *Model) refreshCommands() tea.Cmd {
 			Location: loc,
 			Previous: previous,
 		})
-		if err == nil && cacheStore != nil && !noCache {
-			// A cache failure must never fail the refresh.
-			_ = cacheStore.Save(snap)
-		}
 		return snapshotLoadedMsg{gen: gen, snapshot: snap, err: err}
 	}
 }

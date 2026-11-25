@@ -247,6 +247,14 @@ func (m *Model) handleSnapshot(msg snapshotLoadedMsg) (tea.Model, tea.Cmd) {
 	}
 	m.finishKeyRefresh(msg.err)
 
+	// The cache is written here rather than in the fetch goroutine, because
+	// only this point knows whether the response won. A superseded response
+	// that saved itself would leave the next launch rendering stale data.
+	if msg.err == nil && m.cache != nil && !m.cfg.NoCache {
+		// A cache failure must never fail the refresh.
+		_ = m.cache.Save(msg.snapshot)
+	}
+
 	if msg.err != nil {
 		m.errorBanner = "Refresh failed: " + credRedact(msg.err.Error()) + " - press r to retry"
 		if m.snapshot == nil {

@@ -292,14 +292,14 @@ func TestSaveRefusesWhenTheKeyringStillShadowsTheFile(t *testing.T) {
 	}
 }
 
-// A failed fallback write must leave the keyring untouched, so the credential
-// that was resolvable before the attempt is still resolvable after it.
-func TestSaveKeepsTheKeyringWhenTheFallbackWriteFails(t *testing.T) {
+// A fallback file that cannot be cleared must abort the save before the keyring
+// is touched. Writing the keyring first would make the reported failure a lie:
+// the caller would keep using the old key while the store held the new one.
+func TestSaveAbortsBeforeTheKeyringWhenTheStaleFallbackCannotBeCleared(t *testing.T) {
 	kr := newFakeKeyring()
-	kr.setErr = errors.New("keyring: transient failure")
 	kr.values["routeburn/management"] = "old-key"
 
-	// A file in the parent position makes the fallback write impossible.
+	// A file in the parent position makes removal of the fallback impossible.
 	dir := t.TempDir()
 	blocker := filepath.Join(dir, "blocker")
 	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
@@ -313,10 +313,28 @@ func TestSaveKeepsTheKeyringWhenTheFallbackWriteFails(t *testing.T) {
 	})
 
 	if err := s.Save(context.Background(), KindManagement, "new-key"); err == nil {
-		t.Fatal("expected the fallback write to fail")
+		t.Fatal("expected the save to fail when the stale fallback cannot be cleared")
 	}
 	if kr.values["routeburn/management"] != "old-key" {
-		t.Error("the previous keyring entry must be preserved when the fallback write fails")
+		t.Errorf("the keyring must be left untouched, got %q", kr.values["routeburn/management"])
+	}
+}
+
+// Without a keyring the file is the only backend, and an unwritable path must
+// surface as an error rather than an apparent success.
+func TestSaveWithoutAKeyringReportsAFailedFallbackWrite(t *testing.T) {
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(Options{
+		ManagementTokenFile: filepath.Join(blocker, "management-token"),
+		APIKeyFile:          filepath.Join(dir, "api-key"),
+	})
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err == nil {
+		t.Fatal("expected the save to fail")
 	}
 }
 

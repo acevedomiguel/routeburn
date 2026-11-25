@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -10,6 +12,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/acevedomiguel/routeburn/internal/cache"
 	"github.com/acevedomiguel/routeburn/internal/domain"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
@@ -535,9 +538,55 @@ func waitForCancel(t *testing.T, m *Model) {
 	}
 }
 
-// A slow replacement must not overwrite the result of a newer one the operator
-// submitted afterwards.
-func TestStaleKeySaveDoesNotOverwriteANewerOne(t *testing.T) {
+// Only one replacement may be in flight. Attempts persist the key from their
+// own goroutine, so a second concurrent attempt could write the older key last
+// and leave the store disagreeing with the session.
+func TestKeyEntryIsLockedWhileACheckIsInFlight(t *testing.T) {
+	var persisted []string
+	m := settingsModel(t, settingsWiring{
+		validateKey: func(context.Context, string) error { return nil },
+		saveKey: func(_ context.Context, key string) error {
+			persisted = append(persisted, key)
+			return nil
+		},
+		rebuildAPI: func(string, string) (API, error) { return &fakeAPI{}, nil },
+	})
+	openSettings(t, m)
+
+	attempt := submitKeyAttempt(t, m, "sk-or-v1-only")
+	if !m.keySaving {
+		t.Fatal("submitting the key did not mark the check in flight")
+	}
+
+	// A second entry must not start while the first is being checked.
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.keyEditing {
+		t.Fatal("a second key entry started while a check was in flight")
+	}
+
+	// Closing and reopening the overlay must not unlock it either.
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyEscape})
+	openSettings(t, m)
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.keyEditing {
+		t.Fatal("reopening the overlay bypassed the in-flight check")
+	}
+
+	// Exactly the single submitted key may ever reach the store.
+	feed(m, attempt())
+	if len(persisted) != 1 || persisted[0] != "sk-or-v1-only" {
+		t.Fatalf("persisted = %v, want only the submitted key", persisted)
+	}
+	if m.keySaving {
+		t.Fatal("the row should unlock once the check finishes")
+	}
+}
+
+// A completion that a newer submission has already superseded must not touch
+// the client or the credentials the model is using.
+func TestSupersededKeyCompletionIsDiscarded(t *testing.T) {
 	var rebuilt []string
 	m := settingsModel(t, settingsWiring{
 		validateKey: func(context.Context, string) error { return nil },
@@ -549,18 +598,17 @@ func TestStaleKeySaveDoesNotOverwriteANewerOne(t *testing.T) {
 	})
 	openSettings(t, m)
 
-	older := submitKeyAttempt(t, m, "sk-or-v1-older")
-	newer := submitKeyAttempt(t, m, "sk-or-v1-newer")
+	stale := submitKeyAttempt(t, m, "sk-or-v1-superseded")
+	// Simulate a newer submission having taken over the generation. The UI
+	// blocks this while a check runs, so it is asserted as a guard.
+	m.keyGen++
 
-	// The newer attempt finishes first; the older one lands afterwards.
-	feed(m, newer())
-	feed(m, older())
-
-	if m.creds.Management != "sk-or-v1-newer" {
-		t.Fatalf("management key = %q, want the newer attempt", m.creds.Management)
+	feed(m, stale())
+	if len(rebuilt) != 0 {
+		t.Fatalf("rebuilt with %v, want a discarded superseded completion", rebuilt)
 	}
-	if len(rebuilt) != 1 || rebuilt[0] != "sk-or-v1-newer" {
-		t.Fatalf("rebuilt with %v, want only the newer attempt", rebuilt)
+	if m.creds.Management != "sk-or-v1-management" {
+		t.Fatalf("management key = %q, want the original", m.creds.Management)
 	}
 }
 
@@ -634,6 +682,148 @@ func TestSupersededFetchCannotClearTheNewestCancel(t *testing.T) {
 	case <-secondCancelled:
 	case <-time.After(2 * time.Second):
 		t.Fatal("the replacement fetch could not be cancelled")
+	}
+}
+
+// Registration is the mirror image of cleanup: a command whose goroutine
+// starts late carries an older generation and must not displace the newer
+// request's cancel function. Each fetch is distinguished by function identity
+// so the test does not depend on goroutine scheduling.
+func TestLateStartingFetchCannotEvictTheNewerCancel(t *testing.T) {
+	release := make(chan struct{})
+	olderEntered := make(chan struct{})
+	newestCancelled := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+
+	olderFetch := func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+		close(olderEntered)
+		<-release
+		return domain.Snapshot{}, ctx.Err()
+	}
+	newestFetch := func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+		select {
+		case <-ctx.Done():
+			close(newestCancelled)
+			return domain.Snapshot{}, ctx.Err()
+		case <-time.After(10 * time.Second):
+			return domain.Snapshot{}, errors.New("the newest fetch was not cancellable")
+		}
+	}
+
+	m := testModel(t, testModelOptions{now: fixedNow()})
+
+	// The older command is built first but its goroutine starts last.
+	m.fetchFn = olderFetch
+	older := m.refreshCommands()
+	m.refreshing = false
+	m.fetchFn = newestFetch
+	newest := m.refreshCommands()
+
+	go newest()
+	waitForCancel(t, m)
+
+	go older()
+	select {
+	case <-olderEntered:
+		// setCancel runs before the fetch body, so the older registration has
+		// already been attempted by now.
+	case <-time.After(2 * time.Second):
+		t.Fatal("the older fetch never started")
+	}
+
+	m.cancelInFlight()
+	select {
+	case <-newestCancelled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("a late-starting fetch evicted the newer cancel function")
+	}
+}
+
+// The accepted response is written to the cache exactly once, and a response
+// that loses its generation must never reach it: the next launch would
+// otherwise render the superseded reading.
+func TestStaleResponseCannotOverwriteTheCache(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "snapshot.json")
+	store := cache.NewStore(path)
+
+	var mu sync.Mutex
+	calls := 0
+	fetch := func(ctx context.Context, fo FetchOptions) (domain.Snapshot, error) {
+		mu.Lock()
+		calls++
+		remaining := float64(calls * 10)
+		mu.Unlock()
+		return domain.Snapshot{
+			SchemaVersion: domain.SchemaVersion,
+			GeneratedAt:   fo.Now,
+			Range:         domain.DisplayRange(fo.Now),
+			Account:       domain.AccountCredits{Remaining: remaining},
+			Daily:         domain.AggregateDaily(domain.DisplayRange(fo.Now), nil),
+		}, nil
+	}
+
+	m := testModel(t, testModelOptions{cachePath: path, fetch: fetch})
+
+	older := m.refreshCommands()
+	m.refreshing = false
+	newer := m.refreshCommands()
+
+	// The newer request finishes first and the older one last, so a cache write
+	// performed by the losing command would land last.
+	newerMsg := newer().(snapshotLoadedMsg)
+	olderMsg := older().(snapshotLoadedMsg)
+	accepted := newerMsg.snapshot.Account.Remaining
+	discarded := olderMsg.snapshot.Account.Remaining
+	if accepted == discarded {
+		t.Fatalf("test setup: the two responses must differ, both %v", accepted)
+	}
+
+	feed(m, newerMsg)
+	feed(m, olderMsg)
+
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatalf("the accepted response was not cached: %v", err)
+	}
+	if loaded.Account.Remaining != accepted {
+		t.Fatalf("cache = %v, want the accepted response %v", loaded.Account.Remaining, accepted)
+	}
+}
+
+// A normal accepted response still populates the cache, and --no-cache still
+// suppresses the write now that it happens on the accepting side.
+func TestCacheWriteFollowsTheNoCacheFlag(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "snapshot.json")
+
+	fetch := func(ctx context.Context, fo FetchOptions) (domain.Snapshot, error) {
+		return domain.Snapshot{
+			SchemaVersion: domain.SchemaVersion,
+			GeneratedAt:   fo.Now,
+			Range:         domain.DisplayRange(fo.Now),
+			Daily:         domain.AggregateDaily(domain.DisplayRange(fo.Now), nil),
+		}, nil
+	}
+
+	m := testModel(t, testModelOptions{cachePath: path, fetch: fetch})
+	feed(m, m.refreshCommands()())
+	if _, err := cache.NewStore(path).Load(); err != nil {
+		t.Fatalf("an accepted response must be cached: %v", err)
+	}
+
+	offPath := filepath.Join(t.TempDir(), "snapshot.json")
+	noCache := New(Deps{
+		Config: Config{RefreshInterval: 10 * time.Second, NoCache: true},
+		Creds:  Creds{Management: "sk-or-v1-x"},
+		Cache:  cache.NewStore(offPath),
+		Now:    fixedNow,
+		Fetch:  fetch,
+	})
+	noCache.SetSize(100, 40)
+	feed(noCache, noCache.refreshCommands()())
+	if _, err := os.Stat(offPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("--no-cache must not write the cache: %v", err)
 	}
 }
 

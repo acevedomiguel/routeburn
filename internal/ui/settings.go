@@ -131,6 +131,8 @@ func keyNote(opts SettingsOptions) string {
 		return "ROUTEBURN_MANAGEMENT_KEY supplies the key; unset it to store one here."
 	case !opts.KeyAvailable:
 		return "Key updates are unavailable in this mode."
+	case opts.Saving:
+		return "The key is being checked with one live read; the row unlocks when it finishes."
 	case opts.Editing:
 		return "The key is hidden. Enter validates and saves it; Esc cancels."
 	default:

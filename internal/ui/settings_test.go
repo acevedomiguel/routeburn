@@ -74,6 +74,21 @@ func TestSettingsContentMarksFocusAndHidesKey(t *testing.T) {
 	}
 }
 
+// A key being checked explains why the row is locked, so the lock is not read
+// as a broken control.
+func TestSettingsContentExplainsTheSavingState(t *testing.T) {
+	content := strings.Join(SettingsContent(SettingsOptions{
+		Width: 80, Height: 24, Styles: NewStyles(false),
+		IntervalOptions: DefaultIntervalOptions(), IntervalIndex: 1, Interval: 30 * time.Second,
+		KeyAvailable: true, Focus: 1, Saving: true,
+	}), "\n")
+	for _, want := range []string{"checking the key", "unlocks when it finishes"} {
+		if !strings.Contains(content, want) {
+			t.Errorf("settings content lacks %q:\n%s", want, content)
+		}
+	}
+}
+
 // The overlay must preserve the terminal exactly: one line per row, never wider
 // than the terminal, no ANSI escapes in no-color mode, and a visible title.
 func TestSettingsOverlayKeepsExactGeometryAndNoColorPurity(t *testing.T) {
