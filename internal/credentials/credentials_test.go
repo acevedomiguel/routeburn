@@ -14,6 +14,13 @@ type fakeKeyring struct {
 	values map[string]string
 	fail   bool
 	failOn error
+
+	// setErr and deleteErr fail a single operation while the others keep
+	// working, which is what a partially reachable OS keyring looks like. The
+	// real keyring reports every failure as "unavailable", so tests must be
+	// able to make Get succeed while Set or Delete fails.
+	setErr    error
+	deleteErr error
 }
 
 func newFakeKeyring() *fakeKeyring { return &fakeKeyring{values: map[string]string{}} }
@@ -33,6 +40,9 @@ func (f *fakeKeyring) Set(service, user, secret string) error {
 	if f.fail {
 		return ErrKeyringUnavailable
 	}
+	if f.setErr != nil {
+		return f.setErr
+	}
 	f.values[service+"/"+user] = secret
 	return nil
 }
@@ -40,6 +50,9 @@ func (f *fakeKeyring) Set(service, user, secret string) error {
 func (f *fakeKeyring) Delete(service, user string) error {
 	if f.fail {
 		return ErrKeyringUnavailable
+	}
+	if f.deleteErr != nil {
+		return f.deleteErr
 	}
 	delete(f.values, service+"/"+user)
 	return nil
@@ -181,6 +194,129 @@ func TestSaveCreatesRestrictiveFileWhenKeyringDisabled(t *testing.T) {
 	}
 	if string(data) != "mgmt-new" {
 		t.Errorf("file = %q", data)
+	}
+}
+
+// A successful keyring write must clear the fallback file. Resolution prefers
+// the keyring, so leaving the file behind would let a later launch with an
+// unreachable keyring resurrect the credential that was just replaced.
+func TestSaveRemovesTheStaleFallbackFileAfterAKeyringWrite(t *testing.T) {
+	kr := newFakeKeyring()
+	s, dir := newStore(t, kr)
+	if err := kr.Set("routeburn", "management", "old-key"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "management-token")
+	if err := os.WriteFile(path, []byte("old-key"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the stale fallback file must be removed: %v", err)
+	}
+
+	creds, err := s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "new-key" {
+		t.Fatalf("management = %q, want the saved key", creds.Management)
+	}
+
+	// With the keyring unreachable the replaced value must not come back.
+	kr.fail = true
+	creds, err = s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "" {
+		t.Errorf("management = %q, want no stale key after the fallback was removed", creds.Management)
+	}
+}
+
+// When the keyring cannot take the write, the value goes to the fallback file
+// and the stale keyring entry is cleared so it cannot shadow the file.
+func TestSaveFallsBackToTheFileAndClearsTheKeyringEntry(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.setErr = errors.New("keyring: transient failure")
+	kr.values["routeburn/management"] = "old-key"
+	s, dir := newStore(t, kr)
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, ok := kr.values["routeburn/management"]; ok {
+		t.Error("the stale keyring entry must be cleared")
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "management-token"))
+	if err != nil || string(raw) != "new-key" {
+		t.Fatalf("fallback file = %q, %v", raw, err)
+	}
+
+	// With the keyring healthy again the file value must still win.
+	kr.setErr = nil
+	creds, err := s.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if creds.Management != "new-key" {
+		t.Errorf("management = %q, want the file value", creds.Management)
+	}
+}
+
+// A keyring entry that survives the delete still shadows the file, so the save
+// must report failure instead of a success that will not take effect.
+func TestSaveRefusesWhenTheKeyringStillShadowsTheFile(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.setErr = errors.New("keyring: locked")
+	kr.deleteErr = errors.New("keyring: locked")
+	kr.values["routeburn/management"] = "old-key"
+	s, dir := newStore(t, kr)
+
+	err := s.Save(context.Background(), KindManagement, "new-key")
+	if err == nil {
+		t.Fatal("expected a failure when the keyring entry cannot be replaced")
+	}
+	if strings.Contains(err.Error(), "new-key") || strings.Contains(err.Error(), "old-key") {
+		t.Errorf("the error must not leak a key: %v", err)
+	}
+
+	// The fallback file was written before the keyring was touched, so the new
+	// value is durable even though the call reported failure.
+	raw, readErr := os.ReadFile(filepath.Join(dir, "management-token"))
+	if readErr != nil || string(raw) != "new-key" {
+		t.Fatalf("fallback file = %q, %v", raw, readErr)
+	}
+}
+
+// A failed fallback write must leave the keyring untouched, so the credential
+// that was resolvable before the attempt is still resolvable after it.
+func TestSaveKeepsTheKeyringWhenTheFallbackWriteFails(t *testing.T) {
+	kr := newFakeKeyring()
+	kr.setErr = errors.New("keyring: transient failure")
+	kr.values["routeburn/management"] = "old-key"
+
+	// A file in the parent position makes the fallback write impossible.
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(Options{
+		Keyring:             kr,
+		ManagementTokenFile: filepath.Join(blocker, "management-token"),
+		APIKeyFile:          filepath.Join(dir, "api-key"),
+		KeyringEnabled:      true,
+	})
+
+	if err := s.Save(context.Background(), KindManagement, "new-key"); err == nil {
+		t.Fatal("expected the fallback write to fail")
+	}
+	if kr.values["routeburn/management"] != "old-key" {
+		t.Error("the previous keyring entry must be preserved when the fallback write fails")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -399,6 +400,37 @@ func TestSettingsKeySaveClearsFailureStateAndForcesRefresh(t *testing.T) {
 	}
 }
 
+// The "refreshing with the new key" notice must be replaced by the forced
+// read's real outcome, so a failure is visible instead of the overlay claiming
+// success indefinitely.
+func TestKeyRefreshNoticeClearsAfterTheRefresh(t *testing.T) {
+	validate, save, rebuild := noopKeyHooks()
+	m := settingsModel(t, settingsWiring{validateKey: validate, saveKey: save, rebuildAPI: rebuild})
+	openSettings(t, m)
+
+	feed(m, keySavedMsg{gen: m.keyGen, key: "sk-or-v1-new"})
+	if !strings.Contains(m.settingsMsg, "Refreshing") {
+		t.Fatalf("message = %q, want the refreshing notice", m.settingsMsg)
+	}
+	feed(m, snapshotLoadedMsg{gen: m.gen, snapshot: ui.SampleSnapshotAt(fixedNow())})
+	if m.settingsMsg != "Key saved." {
+		t.Fatalf("message = %q, want the saved notice after a successful read", m.settingsMsg)
+	}
+	if m.settingsErr {
+		t.Error("a successful forced read must not report an error")
+	}
+
+	// A failed forced read must say so, and redact the reason.
+	feed(m, keySavedMsg{gen: m.keyGen, key: "sk-or-v1-new"})
+	feed(m, snapshotLoadedMsg{gen: m.gen, err: errors.New("network unreachable for sk-or-v1-secret")})
+	if !m.settingsErr || !strings.Contains(m.settingsMsg, "refresh failed") {
+		t.Fatalf("message=%q err=%v, want a reported refresh failure", m.settingsMsg, m.settingsErr)
+	}
+	if strings.Contains(m.settingsMsg, "sk-or-v1-secret") {
+		t.Fatalf("the failure notice leaked a key: %q", m.settingsMsg)
+	}
+}
+
 // A background refresh updates the data behind an open overlay without closing
 // it or discarding the operator's position.
 func TestBackgroundRefreshKeepsSettingsOpen(t *testing.T) {
@@ -471,6 +503,138 @@ func TestAPIReplacementIsSynchronized(t *testing.T) {
 		m.setAPI(&fakeAPI{})
 	}
 	<-done
+}
+
+// submitKeyAttempt drives one full key entry: focus the row, start editing,
+// type the value, and submit. It returns the pending command.
+func submitKeyAttempt(t *testing.T, m *Model, key string) tea.Cmd {
+	t.Helper()
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.keyEditing {
+		t.Fatal("enter on the key row did not start editing")
+	}
+	typeKeys(m, key)
+	cmd := pressKey(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("submitting the key returned no command")
+	}
+	return cmd
+}
+
+// waitForCancel blocks until the model has registered a cancel function for an
+// in-flight fetch.
+func waitForCancel(t *testing.T, m *Model) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for !m.cancelPending() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if !m.cancelPending() {
+		t.Fatal("the fetch never registered its cancel function")
+	}
+}
+
+// A slow replacement must not overwrite the result of a newer one the operator
+// submitted afterwards.
+func TestStaleKeySaveDoesNotOverwriteANewerOne(t *testing.T) {
+	var rebuilt []string
+	m := settingsModel(t, settingsWiring{
+		validateKey: func(context.Context, string) error { return nil },
+		saveKey:     func(context.Context, string) error { return nil },
+		rebuildAPI: func(management, _ string) (API, error) {
+			rebuilt = append(rebuilt, management)
+			return &fakeAPI{}, nil
+		},
+	})
+	openSettings(t, m)
+
+	older := submitKeyAttempt(t, m, "sk-or-v1-older")
+	newer := submitKeyAttempt(t, m, "sk-or-v1-newer")
+
+	// The newer attempt finishes first; the older one lands afterwards.
+	feed(m, newer())
+	feed(m, older())
+
+	if m.creds.Management != "sk-or-v1-newer" {
+		t.Fatalf("management key = %q, want the newer attempt", m.creds.Management)
+	}
+	if len(rebuilt) != 1 || rebuilt[0] != "sk-or-v1-newer" {
+		t.Fatalf("rebuilt with %v, want only the newer attempt", rebuilt)
+	}
+}
+
+// The cancel slot belongs to a refresh generation. A superseded fetch finishes
+// long after its replacement has registered, and must not release the
+// replacement's cancel function: doing so would leave the new request
+// uncancellable from quit or the next key replacement.
+func TestSupersededFetchCannotClearTheNewestCancel(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan struct{})
+	secondCancelled := make(chan struct{})
+
+	var mu sync.Mutex
+	calls := 0
+	fetch := func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+		mu.Lock()
+		calls++
+		n := calls
+		mu.Unlock()
+
+		if n == 1 {
+			close(started)
+			// Hold the first fetch inside its work, so its cleanup runs after
+			// the replacement fetch has registered its own cancel function.
+			<-release
+			return domain.Snapshot{}, ctx.Err()
+		}
+		select {
+		case <-ctx.Done():
+			close(secondCancelled)
+			return domain.Snapshot{}, ctx.Err()
+		case <-time.After(10 * time.Second):
+			return domain.Snapshot{}, errors.New("the replacement fetch was not cancellable")
+		}
+	}
+
+	m := testModel(t, testModelOptions{now: fixedNow(), fetch: fetch})
+
+	first := m.refreshCommands()
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		first()
+	}()
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the first fetch never started")
+	}
+
+	// Supersede the first fetch the way a key replacement does.
+	m.cancelInFlight()
+	m.refreshing = false
+	second := m.refreshCommands()
+	go second()
+	waitForCancel(t, m)
+
+	// Now let the superseded fetch run its cleanup.
+	close(release)
+	select {
+	case <-firstDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the superseded fetch never returned")
+	}
+
+	if !m.cancelPending() {
+		t.Fatal("the superseded fetch released the replacement's cancel function")
+	}
+	m.cancelInFlight()
+	select {
+	case <-secondCancelled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the replacement fetch could not be cancelled")
+	}
 }
 
 // The help key must not open Help while Settings owns the keyboard.

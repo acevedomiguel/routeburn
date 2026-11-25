@@ -78,6 +78,12 @@ type Model struct {
 	keySaving           bool
 	settingsMsg         string
 	settingsErr         bool
+	// keyGen stamps management-key replacement attempts so a slow one cannot
+	// overwrite the result of a newer one the operator submitted afterwards.
+	keyGen int
+	// keyRefreshPending is set when a saved key started a forced read, so the
+	// overlay's progress notice can be replaced by that read's outcome.
+	keyRefreshPending bool
 
 	gen int
 
@@ -85,6 +91,7 @@ type Model struct {
 
 	cancelMu    sync.Mutex
 	cancelFetch context.CancelFunc
+	cancelGen   int
 
 	fetchFn func(context.Context, FetchOptions) (domain.Snapshot, error)
 }
@@ -104,10 +111,25 @@ func (m *Model) setAPI(api API) {
 	m.apiMu.Unlock()
 }
 
-// setCancel records the cancel function of the running fetch so quit can stop it.
-func (m *Model) setCancel(cancel context.CancelFunc) {
+// setCancel records the cancel function of the running fetch so quit can stop
+// it, tagged with the refresh generation that owns it.
+func (m *Model) setCancel(gen int, cancel context.CancelFunc) {
 	m.cancelMu.Lock()
 	m.cancelFetch = cancel
+	m.cancelGen = gen
+	m.cancelMu.Unlock()
+}
+
+// clearCancel releases the cancel slot, but only when it still belongs to gen.
+// A superseded fetch finishes long after a newer one has registered, and it
+// must not unregister the newer fetch's cancel function: that would leave the
+// replacement request uncancellable.
+func (m *Model) clearCancel(gen int) {
+	m.cancelMu.Lock()
+	if m.cancelGen == gen {
+		m.cancelFetch = nil
+		m.cancelGen = 0
+	}
 	m.cancelMu.Unlock()
 }
 
@@ -116,6 +138,7 @@ func (m *Model) cancelInFlight() {
 	m.cancelMu.Lock()
 	cancel := m.cancelFetch
 	m.cancelFetch = nil
+	m.cancelGen = 0
 	m.cancelMu.Unlock()
 
 	if cancel != nil {
@@ -352,8 +375,8 @@ func (m *Model) refreshCommands() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		m.setCancel(cancel)
-		defer m.setCancel(nil)
+		m.setCancel(gen, cancel)
+		defer m.clearCancel(gen)
 
 		snap, err := fetch(ctx, FetchOptions{
 			Now:      now,

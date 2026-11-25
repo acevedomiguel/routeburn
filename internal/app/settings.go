@@ -225,6 +225,11 @@ func (m *Model) submitKey() (tea.Model, tea.Cmd) {
 	m.keyEditing, m.keySaving = false, true
 	m.settingsMsg, m.settingsErr = "Checking the key…", false
 
+	// Only the newest attempt may apply. The operator can submit again while a
+	// check is in flight, and the older validation may well finish last.
+	m.keyGen++
+	gen := m.keyGen
+
 	validate, save := m.validateKey, m.saveKey
 	redactor := credentials.NewRedactor(management)
 	return m, func() tea.Msg {
@@ -232,14 +237,14 @@ func (m *Model) submitKey() (tea.Model, tea.Cmd) {
 		err := validate(validateCtx, management)
 		cancelValidate()
 		if err != nil {
-			return keySavedMsg{err: errors.New(redactor.Redact(err.Error()))}
+			return keySavedMsg{gen: gen, err: errors.New(redactor.Redact(err.Error()))}
 		}
 		saveCtx, cancelSave := context.WithTimeout(context.Background(), keyUpdateTimeout)
 		defer cancelSave()
 		if err := save(saveCtx, management); err != nil {
-			return keySavedMsg{err: errors.New(redactor.Redact(err.Error()))}
+			return keySavedMsg{gen: gen, err: errors.New(redactor.Redact(err.Error()))}
 		}
-		return keySavedMsg{key: management}
+		return keySavedMsg{gen: gen, key: management}
 	}
 }
 
@@ -247,6 +252,10 @@ func (m *Model) submitKey() (tea.Model, tea.Cmd) {
 // and reports a redacted reason; a success rebuilds the client and forces an
 // immediate read with the new credential.
 func (m *Model) applyKeySaved(msg keySavedMsg) (tea.Model, tea.Cmd) {
+	if msg.gen != m.keyGen {
+		// A newer attempt is already in flight; its own result is authoritative.
+		return m, nil
+	}
 	m.keySaving = false
 	if msg.err != nil {
 		m.settingsMsg = "Not saved: " + msg.err.Error()
@@ -265,6 +274,7 @@ func (m *Model) applyKeySaved(msg keySavedMsg) (tea.Model, tea.Cmd) {
 	m.setAPI(api)
 	m.creds.Management = msg.key
 	m.settingsMsg, m.settingsErr = "Key saved. Refreshing with the new key…", false
+	m.keyRefreshPending = true
 
 	// A missing-key screen has served its purpose once a key is stored, so
 	// closing the overlay returns to the dashboard rather than back to setup.
@@ -286,4 +296,20 @@ func (m *Model) applyKeySaved(msg keySavedMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmd, m.spinner.Tick)
 	}
 	return m, m.scheduleTick()
+}
+
+// finishKeyRefresh replaces the "refreshing with the new key" notice with the
+// forced read's actual outcome, so a failure is visible instead of the overlay
+// claiming success indefinitely.
+func (m *Model) finishKeyRefresh(err error) {
+	if !m.keyRefreshPending {
+		return
+	}
+	m.keyRefreshPending = false
+	if err != nil {
+		m.settingsMsg = "Key saved, but the refresh failed: " + credRedact(err.Error())
+		m.settingsErr = true
+		return
+	}
+	m.settingsMsg, m.settingsErr = "Key saved.", false
 }

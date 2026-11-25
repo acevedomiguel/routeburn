@@ -245,6 +245,7 @@ func (m *Model) handleSnapshot(msg snapshotLoadedMsg) (tea.Model, tea.Cmd) {
 	if msg.gen > m.gen {
 		m.gen = msg.gen
 	}
+	m.finishKeyRefresh(msg.err)
 
 	if msg.err != nil {
 		m.errorBanner = "Refresh failed: " + credRedact(msg.err.Error()) + " - press r to retry"
