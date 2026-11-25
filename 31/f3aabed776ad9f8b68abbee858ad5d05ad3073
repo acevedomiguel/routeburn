@@ -1,0 +1,27 @@
+internal/credentials/credentials_test.go
+  s_36342dde9b619c::t_5f6d8b6887766f 287
+  s_36342dde9b619c::t_c63ea71a9607a6 341-375
+internal/app/settings.go
+  s_36342dde9b619c::t_9f2705e4c34b51 234-236
+internal/credentials/save.go
+  s_36342dde9b619c::t_3ed2b840470469 46-49
+README.md
+  s_36342dde9b619c::t_4afcd2db032f45 325-327,332-336
+  s_36342dde9b619c::t_fd42d81accdbc3 337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "31f3aabed776ad9f8b68abbee858ad5d05ad3073",
+  "prompts": {},
+  "sessions": {
+    "s_36342dde9b619c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ded741e2fffeLYAedTk7nnPtkk",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    }
+  }
+}
