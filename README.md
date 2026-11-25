@@ -119,6 +119,65 @@ make build
 ./routeburn --version
 ```
 
+## Use as a library
+
+Go applications can import the module root to fetch snapshots and produce the
+same schema-2 JSON as the CLI:
+
+```bash
+go get github.com/acevedomiguel/routeburn
+```
+
+```go
+package dashboard
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"time"
+
+	routeburn "github.com/acevedomiguel/routeburn"
+)
+
+func writeSnapshot(
+	ctx context.Context,
+	w io.Writer,
+	httpClient *http.Client,
+	managementKey string,
+	apiKey string,
+	now time.Time,
+) error {
+	client, err := routeburn.NewClient(
+		routeburn.WithHTTPClient(httpClient),
+		routeburn.WithManagementKey(managementKey),
+		routeburn.WithAPIKey(apiKey), // optional
+		routeburn.WithClock(func() time.Time { return now }),
+	)
+	if err != nil {
+		return err
+	}
+
+	snap, err := routeburn.Fetch(ctx, client, routeburn.FetchOptions{Now: now})
+	if err != nil {
+		return err
+	}
+	return routeburn.WriteJSON(w, snap, false)
+}
+```
+
+The library never reads environment variables, keyring entries, configuration,
+or cache implicitly, and it never writes to stdout or stderr. The caller supplies
+credentials, the clock, HTTP client, and output writer. Implement the public
+`routeburn.API` interface to provide a fake or another read-only data source.
+Nullable limits and runway values remain pointers: `nil` means unavailable,
+unlimited, or not meaningful for the reported basis, never zero.
+
+The public Go API follows semantic versioning alongside the JSON schema. This
+module path stays on `v1.x.y`; a breaking API change requires a coordinated
+`/v2` module-path migration with consumers **before** any `v2` tag. Release
+automation rejects a major version that does not match `go.mod`.
+
 ## Quick start
 
 ```bash

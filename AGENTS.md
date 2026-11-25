@@ -22,6 +22,10 @@ RouteBurn-specific contracts.
   files remain `0600` inside `0700` directories; insecure files are refused
   before reading. Setup validates before storage, and logout removes only
   RouteBurn-owned local entries.
+- The module-root `routeburn` package is a headless public library facade. Its
+  callers supply credentials, clocks, HTTP clients, and writers explicitly; it
+  must never read env, keyring, config, or cache implicitly or write stdout or
+  stderr. Do not expose the credential store or `internal/ui` through it.
 
 ## Snapshots and application behavior
 
@@ -36,9 +40,12 @@ RouteBurn-specific contracts.
   includes the current partial UTC day; runway uses the preceding 30 complete
   UTC days. Preserve negative balances, low-confidence states, and the documented
   no-spend, unavailable, and beyond-horizon outcomes.
-- Treat `internal/app/json.go` as the stable schema-2 public contract. Preserve
-  nullable limits and non-numeric runway values; coordinate intentional changes
-  with `internal/domain/snapshot.go`, cache compatibility, docs, and fixtures.
+- Treat `internal/app/json.go` and the module-root facade in `routeburn.go`,
+  `client.go`, and `json.go` as the stable schema-2 and Go library contracts.
+  Preserve nullable limits and non-numeric runway values; coordinate intentional
+  changes with `internal/domain/snapshot.go`, cache compatibility, docs, and
+  fixtures. Breaking Go API changes require a coordinated major module-path
+  migration, not an in-place break.
 - Preserve CLI exit codes `0/1/2/3`, non-interactive missing-credential behavior
   in JSON mode, JSON on stdout, and diagnostics on stderr.
 
@@ -71,6 +78,10 @@ RouteBurn-specific contracts.
   title is the release commit subject. Do not manually select versions, move
   tags, edit generated release sections of `CHANGELOG.md`, or hand-publish normal
   artifacts.
+- Keep the unsuffixed Go module on `v1.x.y`. `scripts/check-module-version.mjs`
+  runs in semantic-release `verifyRelease` and must reject any major that differs
+  from the module path. A breaking change requires a coordinated `/v2` migration
+  with consumers before any `v2` tag.
 - `.goreleaser.yaml` intentionally publishes a Homebrew **cask** to
   `acevedomiguel/homebrew-routeburn`, not a formula. Keep generation under
   `homebrew_casks` and do not hand-edit the tap from this repository.
@@ -99,6 +110,8 @@ Run checks relevant to the changed area and report anything unavailable:
 - Site behavior, styling, or accessibility: also `npm run test:site` and
   `npm run check:lighthouse`; CI expects accessibility, best-practices, and SEO
   scores of 100.
-- Release tooling: `npm run check:release-notes`.
+- Release tooling: `npm run check:release-notes` and `npm run check:module-version`.
+- Public library changes: `bash scripts/check-library-consumer.sh`, which uses a
+  separate temporary module, synthetic API, and no external network.
 - Use `node tests/site/serve.mjs 8321` when a preview must emulate the production
   `/routeburn/` base path and 404 behavior.

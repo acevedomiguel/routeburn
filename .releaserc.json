@@ -30,6 +30,7 @@
     [
       "@semantic-release/exec",
       {
+        "verifyReleaseCmd": "node scripts/check-module-version.mjs \"${nextRelease.version}\"",
         "publishCmd": "goreleaser release --clean",
         "successCmd": "echo \"version=${nextRelease.version}\" >> \"$GITHUB_OUTPUT\""
       }
