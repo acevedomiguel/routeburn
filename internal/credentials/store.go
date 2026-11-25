@@ -98,6 +98,14 @@ func (s *Store) lookupEnv(key string) string {
 	return strings.TrimSpace(os.Getenv(key))
 }
 
+// ManagementFromEnvironment reports whether ROUTEBURN_MANAGEMENT_KEY supplies
+// the management key. An environment credential wins over any stored value and
+// is never persisted, so an in-app replacement cannot take effect until it is
+// unset. It never returns the secret itself.
+func (s *Store) ManagementFromEnvironment() bool {
+	return s.lookupEnv(EnvManagementKey) != ""
+}
+
 // Resolve returns every credential the process can use right now. A missing
 // management key is not an error here; callers decide how to react.
 func (s *Store) Resolve(ctx context.Context) (Creds, error) {

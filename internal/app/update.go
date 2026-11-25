@@ -40,9 +40,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case snapshotLoadedMsg:
 		return m.handleSnapshot(msg)
 
+	case keySavedMsg:
+		return m.applyKeySaved(msg)
+
 	case tickMsg:
-		if msg.gen != m.gen {
-			// A newer batch superseded this timer.
+		if msg.gen != m.tickGen {
+			// A newer timer superseded this one.
 			return m, nil
 		}
 		if cmd := m.refreshCommands(); cmd != nil {
@@ -83,6 +86,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
+	if m.settingsVisible {
+		return m.handleSettingsKey(msg)
+	}
+
 	if m.helpVisible {
 		switch key {
 		case "esc", "?", "q":
@@ -107,6 +114,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "?":
 		m.helpVisible = true
 		m.helpScroll = 0
+		return m, nil
+	case "s":
+		m.openSettings()
 		return m, nil
 	case "esc":
 		// Esc dismisses the overlay when it is open, but with the dashboard in
@@ -225,13 +235,13 @@ func (m *Model) viewOptions() ui.ViewOptions {
 
 // handleSnapshot merges a fetch result, preserving usable data on failure.
 func (m *Model) handleSnapshot(msg snapshotLoadedMsg) (tea.Model, tea.Cmd) {
-	m.refreshing = false
-	m.loading = false
-
 	if msg.gen != 0 && msg.gen < m.gen {
-		// An older response must never replace a newer snapshot.
+		// An older response must never replace a newer snapshot, and it must
+		// not clear the newer request's in-flight state.
 		return m, m.scheduleTick()
 	}
+	m.refreshing = false
+	m.loading = false
 	if msg.gen > m.gen {
 		m.gen = msg.gen
 	}
@@ -352,6 +362,9 @@ func (m *Model) render() string {
 		background = ui.Render(m.snapshot, opts)
 	}
 
+	if m.settingsVisible {
+		return ui.SettingsOverlay(background, m.settingsOptions())
+	}
 	if m.helpVisible {
 		return ui.HelpOverlay(background, opts)
 	}

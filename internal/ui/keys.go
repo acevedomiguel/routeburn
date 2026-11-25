@@ -9,6 +9,7 @@ import (
 // overlay from this single source of truth.
 type KeyMap struct {
 	Refresh  key.Binding
+	Settings key.Binding
 	Up       key.Binding
 	Down     key.Binding
 	PageUp   key.Binding
@@ -71,6 +72,10 @@ func NewKeyMap() KeyMap {
 			key.WithKeys("r"),
 			key.WithHelp("[r]", "refresh"),
 		),
+		Settings: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("[s]", "settings"),
+		),
 		Down: key.NewBinding(
 			key.WithKeys("j", "down"),
 			key.WithHelp("[↑↓]", "scroll"),
@@ -104,16 +109,73 @@ func NewKeyMap() KeyMap {
 
 // ShortHelp is the one-line footer, in render order.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Refresh, k.Down, k.Tab, k.Help, k.Quit}
+	return []key.Binding{k.Refresh, k.Settings, k.Down, k.Tab, k.Help, k.Quit}
 }
 
 // FullHelp is the grouped overlay. SetUp remains the same as the footer.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Refresh, k.Down, k.Tab, k.Help},
+		{k.Refresh, k.Settings, k.Down, k.Tab, k.Help},
 		{k.Up, k.PageUp, k.PageDown},
 		{k.Close, k.Quit},
 	}
+}
+
+// SettingsKeyMap describes the keys available inside the Settings overlay.
+type SettingsKeyMap struct {
+	Move   key.Binding
+	Change key.Binding
+	Edit   key.Binding
+	Close  key.Binding
+	Quit   key.Binding
+}
+
+// NewSettingsKeyMap builds the Settings overlay bindings.
+func NewSettingsKeyMap() SettingsKeyMap {
+	return SettingsKeyMap{
+		Move: key.NewBinding(
+			key.WithKeys("up", "down", "k", "j"),
+			key.WithHelp("[↑↓/j/k]", "select"),
+		),
+		Change: key.NewBinding(
+			key.WithKeys("left", "right", "h", "l"),
+			key.WithHelp("[←/→]", "interval"),
+		),
+		Edit: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("[enter]", "update key"),
+		),
+		Close: key.NewBinding(
+			key.WithKeys("esc", "q", "s"),
+			key.WithHelp("[esc]", "close"),
+		),
+		Quit: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("[ctrl+c]", "quit"),
+		),
+	}
+}
+
+// SettingsFooter is the Settings overlay's key hints. While a key is being
+// typed only the keys that apply in that mode are listed, and the update-key
+// hint is dropped when the row is unavailable, so the footer never advertises a
+// disabled action.
+func (k SettingsKeyMap) SettingsFooter(editing, keyAvailable bool) [][]key.Binding {
+	if editing {
+		return [][]key.Binding{{
+			key.NewBinding(key.WithKeys("enter"), key.WithHelp("[enter]", "save")),
+			key.NewBinding(key.WithKeys("esc"), key.WithHelp("[esc]", "cancel")),
+			k.Quit,
+		}}
+	}
+	// Browsing lists Close rather than Quit: Esc, q, and s all close the
+	// overlay, so the hint covers both leaving and quitting, and the shorter
+	// row still fits the popup on a 60-column terminal.
+	row := []key.Binding{k.Move, k.Change}
+	if keyAvailable {
+		row = append(row, k.Edit)
+	}
+	return [][]key.Binding{append(row, k.Close)}
 }
 
 // Bindings is the flat, ordered list kept for callers that just want labels.

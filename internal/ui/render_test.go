@@ -165,12 +165,12 @@ func TestRenderScrollableNarrowClipsToHeight(t *testing.T) {
 func TestFooterOnlyAdvertisesImplementedKeys(t *testing.T) {
 	s := plainStyles()
 	footer := Footer(ViewOptions{Styles: s})
-	for _, want := range []string{"[r]", "[q]", "[?]"} {
+	for _, want := range []string{"[r]", "[s]", "[q]", "[?]"} {
 		if !strings.Contains(footer, want) {
 			t.Errorf("footer missing %q: %q", want, footer)
 		}
 	}
-	for _, notYet := range []string{"export", "settings", "analyze"} {
+	for _, notYet := range []string{"export", "analyze"} {
 		if strings.Contains(footer, notYet) {
 			t.Errorf("footer advertises unimplemented feature %q", notYet)
 		}

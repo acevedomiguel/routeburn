@@ -217,3 +217,138 @@ func TestUnreadableConfigPathIsReported(t *testing.T) {
 
 func durationPtr(d time.Duration) *time.Duration { return &d }
 func strPtr(s string) *string                    { return &s }
+
+func TestFormatInterval(t *testing.T) {
+	cases := map[time.Duration]string{
+		0:                "0s",
+		10 * time.Second: "10s",
+		30 * time.Second: "30s",
+		time.Minute:      "1m",
+		5 * time.Minute:  "5m",
+		90 * time.Second: "1m30s",
+		10 * time.Minute: "10m",
+	}
+	for d, want := range cases {
+		if got := FormatInterval(d); got != want {
+			t.Errorf("FormatInterval(%v) = %q, want %q", d, got, want)
+		}
+	}
+}
+
+// SaveRefreshInterval rewrites only refresh_interval and leaves every other key
+// in the file exactly as the user set it.
+func TestSaveRefreshIntervalPreservesOtherSettings(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	body := "version: 1\nrefresh_interval: 10s\nrange_days: 30\ntheme: dark\ncolor: never\nkeyring: false\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := SaveRefreshInterval(path, 5*time.Minute); err != nil {
+		t.Fatalf("SaveRefreshInterval: %v", err)
+	}
+
+	cfg, err := Load([]string{path}, nil)
+	if err != nil {
+		t.Fatalf("Load after save: %v", err)
+	}
+	if cfg.RefreshInterval != 5*time.Minute {
+		t.Errorf("refresh interval = %v, want 5m", cfg.RefreshInterval)
+	}
+	if cfg.Theme != "dark" {
+		t.Errorf("theme = %q, want the file's dark", cfg.Theme)
+	}
+	if cfg.Color != "never" {
+		t.Errorf("color = %q, want the file's never", cfg.Color)
+	}
+	if cfg.Keyring {
+		t.Error("keyring = true, want the file's false to survive")
+	}
+	if cfg.RangeDays != 30 {
+		t.Errorf("range_days = %d, want 30", cfg.RangeDays)
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "refresh_interval: 5m") {
+		t.Errorf("saved file does not spell the interval readably:\n%s", raw)
+	}
+	if strings.Contains(strings.ToLower(string(raw)), "token") || strings.Contains(strings.ToLower(string(raw)), "secret") {
+		t.Errorf("saved config must never contain a credential:\n%s", raw)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if PermissionsAreEnforced && info.Mode().Perm()&0o077 != 0 {
+		t.Errorf("permissions = %o, want no group/world access", info.Mode().Perm())
+	}
+}
+
+// A missing file is created from the defaults so the dashboard can persist a
+// choice before setup has written a configuration.
+func TestSaveRefreshIntervalCreatesMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "config.yaml")
+
+	if err := SaveRefreshInterval(path, 30*time.Second); err != nil {
+		t.Fatalf("SaveRefreshInterval: %v", err)
+	}
+
+	cfg, err := Load([]string{path}, nil)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RefreshInterval != 30*time.Second {
+		t.Errorf("refresh interval = %v, want 30s", cfg.RefreshInterval)
+	}
+	if cfg.RangeDays != SupportedRangeDays {
+		t.Errorf("range_days = %d, want the default %d", cfg.RangeDays, SupportedRangeDays)
+	}
+}
+
+// The value is validated before it is written, so an out-of-range choice can
+// never leave an unloadable file behind.
+func TestSaveRefreshIntervalRejectsInvalidAndLeavesFileIntact(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := WriteSample(path); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := SaveRefreshInterval(path, 5*time.Second); err == nil {
+		t.Fatal("expected an error for an interval below the floor")
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Errorf("a rejected save must not rewrite the file:\nbefore %s\nafter %s", before, after)
+	}
+}
+
+// A zero interval stays valid and round-trips as "0s".
+func TestSaveRefreshIntervalAcceptsZero(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := SaveRefreshInterval(path, 0); err != nil {
+		t.Fatalf("SaveRefreshInterval: %v", err)
+	}
+	cfg, err := Load([]string{path}, nil)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.AutoRefreshEnabled() {
+		t.Error("a saved zero interval must disable automatic refresh")
+	}
+}

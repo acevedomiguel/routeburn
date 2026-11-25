@@ -270,3 +270,75 @@ func TestCredsHasHelpers(t *testing.T) {
 		t.Errorf("Redacted = %q", got)
 	}
 }
+
+// syntheticKey is invented for tests. It is never a real credential.
+const syntheticKey = "sk-or-v1-" + "testonly0000" + "abcdefgh"
+
+// A Redactor hides the exact configured key even when it does not look like a
+// key, in raw and URL-escaped forms, and never leaks it back.
+func TestRedactorRemovesExactConfiguredKey(t *testing.T) {
+	r := NewRedactor(syntheticKey)
+	inputs := []string{
+		"validation failed for " + syntheticKey,
+		"Authorization: Bearer " + syntheticKey,
+		"GET /credits?key=" + syntheticKey,
+		"error: " + syntheticKey + " expired",
+	}
+	for _, in := range inputs {
+		out := r.Redact(in)
+		if strings.Contains(out, syntheticKey) {
+			t.Errorf("Redact(%q) = %q, still contains the key", in, out)
+		}
+		if !strings.Contains(out, "[redacted]") {
+			t.Errorf("Redact(%q) = %q, should mark the redaction", in, out)
+		}
+	}
+}
+
+// A key whose shape does not match the documented prefix is still hidden,
+// because the redactor matches the exact configured value.
+func TestRedactorHidesNonStandardKeyShape(t *testing.T) {
+	const opaque = "totally-opaque-key-value"
+	r := NewRedactor(opaque)
+	out := r.Redact("the server rejected " + opaque + " today")
+	if strings.Contains(out, opaque) {
+		t.Fatalf("Redact = %q, leaked the opaque key", out)
+	}
+}
+
+// A nil receiver still scrubs the generic shapes, so a missing configuration
+// never disables redaction.
+func TestNilRedactorStillRedactsGenericShapes(t *testing.T) {
+	var r *Redactor
+	out := r.Redact("Authorization: Bearer " + syntheticKey)
+	if strings.Contains(out, syntheticKey) {
+		t.Fatalf("nil Redact = %q, leaked the key", out)
+	}
+}
+
+// Empty and whitespace-only values are ignored rather than becoming a
+// match-everything pattern.
+func TestRedactorIgnoresEmptySecrets(t *testing.T) {
+	r := NewRedactor("", "   ", syntheticKey)
+	if got := r.Redact("nothing sensitive here"); got != "nothing sensitive here" {
+		t.Errorf("Redact changed a clean string: %q", got)
+	}
+}
+
+// ManagementFromEnvironment reports whether the environment supplies the
+// management key, without handing the secret back.
+func TestManagementFromEnvironment(t *testing.T) {
+	s := NewStore(Options{Env: map[string]string{}})
+	if s.ManagementFromEnvironment() {
+		t.Error("an empty environment must not report a management key")
+	}
+	s = NewStore(Options{Env: map[string]string{EnvManagementKey: "mgmt"}})
+	if !s.ManagementFromEnvironment() {
+		t.Error("an environment management key must be reported")
+	}
+	// A regular API key never satisfies the management slot.
+	s = NewStore(Options{Env: map[string]string{EnvOpenRouterKey: "api"}})
+	if s.ManagementFromEnvironment() {
+		t.Error("OPENROUTER_API_KEY must not count as a management key")
+	}
+}

@@ -101,7 +101,24 @@ func runJSON(rt *runtime, stdout, stderr io.Writer) int {
 
 // runTUI starts the interactive dashboard.
 func runTUI(rt *runtime, stdin io.Reader, stdout, stderr io.Writer) int {
-	model := app.New(app.Deps{
+	model := buildTUIModel(rt)
+
+	program := tea.NewProgram(model,
+		tea.WithInput(stdin),
+		tea.WithOutput(stdout),
+	)
+	if _, err := program.Run(); err != nil {
+		fmt.Fprintf(stderr, "routeburn: %v\n", err)
+		return exitFailure
+	}
+	return exitOK
+}
+
+// buildTUIModel assembles the dashboard model. It is separate from runTUI so
+// the Settings wiring can be exercised without opening a terminal.
+func buildTUIModel(rt *runtime) *app.Model {
+	configTarget := rt.configTarget()
+	return app.New(app.Deps{
 		Config: app.Config{
 			RefreshInterval: rt.cfg.RefreshInterval,
 			NoCache:         rt.opts.noCache,
@@ -116,17 +133,36 @@ func runTUI(rt *runtime, stdin io.Reader, stdout, stderr io.Writer) int {
 		Cache:   rt.cache,
 		Now:     func() time.Time { return time.Now().UTC() },
 		Version: version,
-	})
 
-	program := tea.NewProgram(model,
-		tea.WithInput(stdin),
-		tea.WithOutput(stdout),
-	)
-	if _, err := program.Run(); err != nil {
-		fmt.Fprintf(stderr, "routeburn: %v\n", err)
-		return exitFailure
-	}
-	return exitOK
+		// The Settings overlay can change the interval and replace the
+		// management key. The interval is written back to the active
+		// configuration file; the key is validated with one read before it is
+		// stored, then used to rebuild the client.
+		IntervalOptions: app.DefaultIntervalOptions(),
+		SetInterval: func(interval time.Duration) error {
+			return config.SaveRefreshInterval(configTarget, interval)
+		},
+		IntervalPinned: rt.opts.refreshSet || strings.TrimSpace(os.Getenv("ROUTEBURN_REFRESH_INTERVAL")) != "",
+		EnvKey:         rt.store.ManagementFromEnvironment(),
+		ValidateKey: func(ctx context.Context, management string) error {
+			client, err := newAPIClient(management, rt.creds.APIKey)
+			if err != nil {
+				return err
+			}
+			_, err = client.Credits(ctx)
+			return err
+		},
+		SaveKey: func(ctx context.Context, management string) error {
+			return rt.store.Save(ctx, credentials.KindManagement, management)
+		},
+		RebuildAPI: func(management, apiKey string) (app.API, error) {
+			client, err := newAPIClient(management, apiKey)
+			if err != nil {
+				return nil, err
+			}
+			return client, nil
+		},
+	})
 }
 
 // doSetup stores credentials after validating them with a live request.

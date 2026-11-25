@@ -198,9 +198,79 @@ func WriteSample(path string) error {
 	return nil
 }
 
+// SaveRefreshInterval rewrites refresh_interval in the configuration file and
+// leaves every other setting untouched. A missing file is created from the
+// defaults, so the dashboard can persist a choice before setup has written one.
+// The result is validated before it is written, and the file is always
+// owner-only. It never writes a credential.
+func SaveRefreshInterval(path string, interval time.Duration) error {
+	cfg := Defaults()
+	if err := mergeFile(&cfg, path); err != nil {
+		return err
+	}
+	cfg.RefreshInterval = interval
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	return writeConfig(path, cfg)
+}
+
+// writeConfig serializes cfg with the interval spelled readably ("10s", "5m")
+// rather than as a raw nanosecond count, so the file stays hand-editable and
+// matches the documented format. The file is always owner-only, tightening a
+// pre-existing looser file rather than only applying the mode on creation.
+func writeConfig(path string, cfg Config) error {
+	body, err := yaml.Marshal(fileConfig{
+		Version:         cfg.Version,
+		RefreshInterval: FormatInterval(cfg.RefreshInterval),
+		RangeDays:       cfg.RangeDays,
+		Theme:           cfg.Theme,
+		Color:           cfg.Color,
+		Keyring:         cfg.Keyring,
+	})
+	if err != nil {
+		return fmt.Errorf("config: encode %s: %w", path, err)
+	}
+	if err := os.MkdirAll(parentDir(path), 0o700); err != nil {
+		return fmt.Errorf("config: create directory: %w", err)
+	}
+	if err := os.WriteFile(path, append([]byte(configHeader), body...), 0o600); err != nil {
+		return fmt.Errorf("config: write %s: %w", path, err)
+	}
+	if PermissionsAreEnforced {
+		if err := os.Chmod(path, 0o600); err != nil {
+			return fmt.Errorf("config: restrict %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+// fileConfig is the on-disk configuration shape. The refresh interval is a
+// string so it round-trips as "10s" instead of a nanosecond count.
+type fileConfig struct {
+	Version         int    `yaml:"version"`
+	RefreshInterval string `yaml:"refresh_interval"`
+	RangeDays       int    `yaml:"range_days"`
+	Theme           string `yaml:"theme"`
+	Color           string `yaml:"color"`
+	Keyring         bool   `yaml:"keyring"`
+}
+
+// FormatInterval renders a duration the way the configuration file spells it:
+// whole minutes as "Nm", a zero interval as "0s", and anything else with Go's
+// duration syntax. It is the inverse of the durations Load parses.
+func FormatInterval(d time.Duration) string {
+	if d > 0 && d%time.Minute == 0 {
+		return strconv.Itoa(int(d/time.Minute)) + "m"
+	}
+	return d.String()
+}
+
+// configHeader is the first line of every file RouteBurn writes.
+const configHeader = "# RouteBurn configuration. Credentials are never stored here.\n"
+
 // sampleYAML is the first-run configuration written by WriteSample.
-var sampleYAML = strings.Join([]string{
-	"# RouteBurn configuration. Credentials are never stored here.",
+var sampleYAML = configHeader + strings.Join([]string{
 	"version: 1",
 	"refresh_interval: 10s",
 	"range_days: 30",
