@@ -1,3 +1,9 @@
+## [1.7.0](https://github.com/acevedomiguel/routeburn/compare/v1.6.0...v1.7.0) (2026-11-25)
+
+### Features
+
+* add in-app settings for refresh interval and key ([#28](https://github.com/acevedomiguel/routeburn/issues/28)) ([2bfca34](https://github.com/acevedomiguel/routeburn/commit/2bfca34b7518bfff6103630856a2a5ce4891f6ce))
+
 ## [1.6.0](https://github.com/acevedomiguel/routeburn/compare/v1.5.1...v1.6.0) (2026-11-25)
 
 ### Features
