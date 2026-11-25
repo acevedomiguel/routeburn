@@ -1,0 +1,39 @@
+README.md
+  s_36342dde9b619c::t_43c2d5ccdc7a08 325-330
+internal/credentials/credentials_test.go
+  s_36342dde9b619c::t_21e5aaaec10e2d 295-298,302,316,319-337
+internal/app/settings_test.go
+  s_36342dde9b619c::t_3bda6ca2d8dd7f 688-814,816-818,820-824,826-829
+  s_36342dde9b619c::t_28d444ef3a05d0 6-7,15
+  s_36342dde9b619c::t_8f688bad671922 541-589,601-604,606-608,610-611
+  s_36342dde9b619c::t_37b8e6a3146a64 815,819,825
+internal/ui/settings_test.go
+  s_36342dde9b619c::t_2ef7bba7a2d812 77-91
+internal/credentials/save.go
+  s_36342dde9b619c::t_14e6fef06835bb 30-35
+  s_36342dde9b619c::t_8d9491b1150f27 45-46,49-53,56-57,59-66,69-71
+internal/ui/settings.go
+  s_36342dde9b619c::t_8d9491b1150f27 134-135
+internal/app/settings.go
+  s_36342dde9b619c::t_8d9491b1150f27 65-68,126-129
+internal/app/model.go
+  s_36342dde9b619c::t_8d9491b1150f27 115-117,120-123
+internal/app/update.go
+  s_36342dde9b619c::t_8d9491b1150f27 250-257
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "05ffce25e0d452e687919b8f06c3478ff59da4fd",
+  "prompts": {},
+  "sessions": {
+    "s_36342dde9b619c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ded741e2fffeLYAedTk7nnPtkk",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    }
+  }
+}
