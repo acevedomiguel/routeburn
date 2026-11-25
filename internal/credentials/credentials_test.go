@@ -299,15 +299,26 @@ func TestSaveAbortsBeforeTheKeyringWhenTheStaleFallbackCannotBeCleared(t *testin
 	kr := newFakeKeyring()
 	kr.values["routeburn/management"] = "old-key"
 
-	// A file in the parent position makes removal of the fallback impossible.
+	// The fallback path is a non-empty directory so removal fails on every
+	// platform. A path through a regular file would not do: Windows reports it
+	// as "not exist", which removal treats as already gone.
 	dir := t.TempDir()
-	blocker := filepath.Join(dir, "blocker")
-	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+	blocked := filepath.Join(dir, "management-token")
+	if err := os.MkdirAll(blocked, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(blocked, "keep"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Removal must fail for a reason other than "already gone": tolerating
+	// ErrNotExist is correct, so the test has to produce a real failure.
+	if err := os.Remove(blocked); err == nil || errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("test setup: the fallback must be unremovable, got err=%v", err)
+	}
+
 	s := NewStore(Options{
 		Keyring:             kr,
-		ManagementTokenFile: filepath.Join(blocker, "management-token"),
+		ManagementTokenFile: blocked,
 		APIKeyFile:          filepath.Join(dir, "api-key"),
 		KeyringEnabled:      true,
 	})
@@ -324,12 +335,15 @@ func TestSaveAbortsBeforeTheKeyringWhenTheStaleFallbackCannotBeCleared(t *testin
 // surface as an error rather than an apparent success.
 func TestSaveWithoutAKeyringReportsAFailedFallbackWrite(t *testing.T) {
 	dir := t.TempDir()
-	blocker := filepath.Join(dir, "blocker")
-	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+	blocked := filepath.Join(dir, "management-token")
+	if err := os.MkdirAll(blocked, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(blocked, "keep"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	s := NewStore(Options{
-		ManagementTokenFile: filepath.Join(blocker, "management-token"),
+		ManagementTokenFile: blocked,
 		APIKeyFile:          filepath.Join(dir, "api-key"),
 	})
 
