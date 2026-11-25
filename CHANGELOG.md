@@ -1,3 +1,9 @@
+## [1.6.0](https://github.com/acevedomiguel/routeburn/compare/v1.5.1...v1.6.0) (2026-11-25)
+
+### Features
+
+* expose RouteBurn as an importable Go library ([#27](https://github.com/acevedomiguel/routeburn/issues/27)) ([04cfc5a](https://github.com/acevedomiguel/routeburn/commit/04cfc5aac6691f50ba35d6e6f9ab5d54e8312bbd))
+
 ## [1.5.1](https://github.com/acevedomiguel/routeburn/compare/v1.5.0...v1.5.1) (2026-11-24)
 
 ### Bug Fixes
