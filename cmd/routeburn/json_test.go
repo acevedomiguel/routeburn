@@ -10,11 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/acevedomiguel/routeburn/internal/cache"
-	"github.com/acevedomiguel/routeburn/internal/config"
-	"github.com/acevedomiguel/routeburn/internal/credentials"
-	"github.com/acevedomiguel/routeburn/internal/domain"
-	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // fakeAPI serves the three OpenRouter endpoints the snapshot needs.
@@ -44,10 +40,10 @@ func fakeAPI(t *testing.T) *httptest.Server {
 
 func TestRunJSONPrintsContract(t *testing.T) {
 	srv := fakeAPI(t)
-	client, err := or.NewClient(
-		or.WithBaseURL(srv.URL),
-		or.WithManagementKey("mgmt"),
-		or.WithAPIKey("api"),
+	client, err := openrouter.NewClient(
+		openrouter.WithBaseURL(srv.URL),
+		openrouter.WithManagementKey("mgmt"),
+		openrouter.WithAPIKey("api"),
 	)
 	if err != nil {
 		t.Fatalf("client: %v", err)
@@ -56,10 +52,10 @@ func TestRunJSONPrintsContract(t *testing.T) {
 	dir := t.TempDir()
 	rt := &runtime{
 		opts:   options{jsonMode: true},
-		cfg:    config.Defaults(),
-		creds:  credentials.Creds{Management: "mgmt", APIKey: "api"},
+		cfg:    openrouter.DefaultConfig(),
+		creds:  openrouter.Creds{Management: "mgmt", APIKey: "api"},
 		client: client,
-		cache:  cache.NewStore(filepath.Join(dir, "snapshot.json")),
+		cache:  openrouter.NewCacheStore(filepath.Join(dir, "snapshot.json")),
 		now:    func() time.Time { return time.Now().UTC() },
 	}
 
@@ -72,8 +68,8 @@ func TestRunJSONPrintsContract(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &decoded); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
 	}
-	if got := int(decoded["schema_version"].(float64)); got != domain.SchemaVersion {
-		t.Errorf("schema_version = %v, want %d", got, domain.SchemaVersion)
+	if got := int(decoded["schema_version"].(float64)); got != openrouter.SchemaVersion {
+		t.Errorf("schema_version = %v, want %d", got, openrouter.SchemaVersion)
 	}
 	if decoded["cached"] != false {
 		t.Errorf("cached = %v", decoded["cached"])
@@ -98,20 +94,20 @@ func TestRunJSONFallsBackToCacheWhenAPIFails(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client, err := or.NewClient(or.WithBaseURL(srv.URL), or.WithManagementKey("mgmt"), or.WithSleep(func(time.Duration) {}))
+	client, err := openrouter.NewClient(openrouter.WithBaseURL(srv.URL), openrouter.WithManagementKey("mgmt"), openrouter.WithSleep(func(time.Duration) {}))
 	if err != nil {
 		t.Fatalf("client: %v", err)
 	}
 
 	dir := t.TempDir()
-	store := cache.NewStore(filepath.Join(dir, "snapshot.json"))
+	store := openrouter.NewCacheStore(filepath.Join(dir, "snapshot.json"))
 	if err := store.Save(cachedSnapshot()); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
 	rt := &runtime{
 		opts:   options{jsonMode: true},
-		cfg:    config.Defaults(),
+		cfg:    openrouter.DefaultConfig(),
 		client: client,
 		cache:  store,
 		now:    func() time.Time { return time.Now().UTC() },
@@ -132,14 +128,14 @@ func TestRunJSONWithoutCacheAndAPIFailureExitsNonzero(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client, err := or.NewClient(or.WithBaseURL(srv.URL), or.WithManagementKey("mgmt"), or.WithSleep(func(time.Duration) {}))
+	client, err := openrouter.NewClient(openrouter.WithBaseURL(srv.URL), openrouter.WithManagementKey("mgmt"), openrouter.WithSleep(func(time.Duration) {}))
 	if err != nil {
 		t.Fatalf("client: %v", err)
 	}
 
 	rt := &runtime{
 		opts:   options{jsonMode: true},
-		cfg:    config.Defaults(),
+		cfg:    openrouter.DefaultConfig(),
 		client: client,
 		cache:  nil,
 		now:    func() time.Time { return time.Now().UTC() },
@@ -157,14 +153,14 @@ func TestRunJSONWithoutCacheAndAPIFailureExitsNonzero(t *testing.T) {
 	}
 }
 
-func cachedSnapshot() domain.Snapshot {
+func cachedSnapshot() openrouter.Snapshot {
 	now := time.Now().UTC()
-	return domain.Snapshot{
-		SchemaVersion: domain.SchemaVersion,
+	return openrouter.Snapshot{
+		SchemaVersion: openrouter.SchemaVersion,
 		GeneratedAt:   now.Add(-2 * time.Hour),
-		Range:         domain.DisplayRange(now),
-		Account:       domain.AccountCredits{TotalPurchased: 100, TotalUsed: 10, Remaining: 90},
-		Daily:         domain.AggregateDaily(domain.DisplayRange(now), nil),
-		Runway:        domain.RunwayEstimate{Basis: domain.BasisNoRecentSpend},
+		Range:         openrouter.DisplayRange(now),
+		Account:       openrouter.AccountCredits{TotalPurchased: 100, TotalUsed: 10, Remaining: 90},
+		Daily:         openrouter.AggregateDaily(openrouter.DisplayRange(now), nil),
+		Runway:        openrouter.RunwayEstimate{Basis: openrouter.BasisNoRecentSpend},
 	}
 }

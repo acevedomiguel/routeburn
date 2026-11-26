@@ -8,14 +8,13 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/app"
-	"github.com/acevedomiguel/routeburn/internal/config"
-	or "github.com/acevedomiguel/routeburn/internal/openrouter"
 )
 
 // isolatedHome points every platform directory at a temp dir and disables the
 // keyring, so the CLI tests never touch the user's real state.
-func isolatedHome(t *testing.T) config.Paths {
+func isolatedHome(t *testing.T) openrouter.Paths {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -27,7 +26,7 @@ func isolatedHome(t *testing.T) config.Paths {
 	t.Setenv("OPENROUTER_API_KEY", "")
 	t.Setenv("ROUTEBURN_REFRESH_INTERVAL", "")
 
-	paths, err := config.DefaultPaths()
+	paths, err := openrouter.DefaultPaths()
 	if err != nil {
 		t.Fatalf("DefaultPaths: %v", err)
 	}
@@ -36,7 +35,7 @@ func isolatedHome(t *testing.T) config.Paths {
 
 // seedManagementKey stores a synthetic key in the restricted fallback file, so
 // the runtime resolves a credential without an environment override.
-func seedManagementKey(t *testing.T, paths config.Paths, key string) {
+func seedManagementKey(t *testing.T, paths openrouter.Paths, key string) {
 	t.Helper()
 	if err := os.MkdirAll(paths.ConfigDir, 0o700); err != nil {
 		t.Fatal(err)
@@ -111,12 +110,12 @@ func TestBuildTUIModelValidatesAndStoresAReplacementKey(t *testing.T) {
 
 	srv := fakeAPI(t)
 	restore := newAPIClient
-	newAPIClient = func(management, apiKey string) (*or.Client, error) {
-		return or.NewClient(
-			or.WithBaseURL(srv.URL),
-			or.WithManagementKey(management),
-			or.WithAPIKey(apiKey),
-			or.WithVersion(version),
+	newAPIClient = func(management, apiKey string) (*openrouter.Client, error) {
+		return openrouter.NewClient(
+			openrouter.WithBaseURL(srv.URL),
+			openrouter.WithManagementKey(management),
+			openrouter.WithAPIKey(apiKey),
+			openrouter.WithVersion(version),
 		)
 	}
 	t.Cleanup(func() { newAPIClient = restore })

@@ -62,20 +62,6 @@ jobs:
       - name: Build
         run: go build ./cmd/routeburn
 
-  library-consumer:
-    name: external library consumer
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Fetch and encode from a separate module
-        run: bash scripts/check-library-consumer.sh
-
   goreleaser-snapshot:
     name: goreleaser snapshot
     runs-on: ubuntu-latest

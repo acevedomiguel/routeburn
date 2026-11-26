@@ -8,16 +8,17 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/format"
 )
 
 // tableDaily builds n consecutive days ending on fixedNow's date, with spend of
 // 0.10, 0.20, ... so the totals are easy to reason about.
-func tableDaily(n int) []domain.DailyUsage {
+func tableDaily(n int) []openrouter.DailyUsage {
 	end := time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC)
-	out := make([]domain.DailyUsage, 0, n)
+	out := make([]openrouter.DailyUsage, 0, n)
 	for i := 0; i < n; i++ {
-		out = append(out, domain.DailyUsage{
+		out = append(out, openrouter.DailyUsage{
 			Day:          end.AddDate(0, 0, i-(n-1)),
 			CreditSpend:  float64(i+1) / 10,
 			Tokens:       int64(1000 * (i + 1)),
@@ -94,8 +95,8 @@ func TestDailyTableTotalCoversEveryDay(t *testing.T) {
 	if !strings.Contains(body, "30 days") {
 		t.Fatalf("no total row:\n%s", body)
 	}
-	if !strings.Contains(body, domain.FormatCredits(want)) {
-		t.Errorf("total row must sum all 30 days (%s):\n%s", domain.FormatCredits(want), body)
+	if !strings.Contains(body, format.FormatCredits(want)) {
+		t.Errorf("total row must sum all 30 days (%s):\n%s", format.FormatCredits(want), body)
 	}
 }
 
@@ -210,7 +211,7 @@ func TestDailyTableBarColumnAbsorbsTheSurplus(t *testing.T) {
 // Bars scale to the peak day: the biggest spender fills the column, a
 // half-spend day fills about half.
 func TestDailyTableBarsScaleToThePeak(t *testing.T) {
-	daily := []domain.DailyUsage{
+	daily := []openrouter.DailyUsage{
 		{Day: time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC), CreditSpend: 1.00, Tokens: 100},
 		{Day: time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC), CreditSpend: 2.00, Tokens: 200},
 	}
@@ -253,7 +254,7 @@ func TestDailyTableHeatRampEndpoints(t *testing.T) {
 // With colour on, the peak day's spend and bar carry escape sequences; a
 // zero-spend day stays muted.
 func TestDailyTableColoursExpensiveDays(t *testing.T) {
-	daily := []domain.DailyUsage{
+	daily := []openrouter.DailyUsage{
 		{Day: time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC), CreditSpend: 0, Tokens: 0},
 		{Day: time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC), CreditSpend: 2.00, Tokens: 200},
 	}

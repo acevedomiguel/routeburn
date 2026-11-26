@@ -8,7 +8,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/format"
 )
 
 // ViewOptions carries everything the renderer needs that is not in the
@@ -62,7 +63,7 @@ func titleRow(opts ViewOptions) string {
 // floats mid-screen. There is no outer frame: the panels are the frame. The
 // freshness status lives in the Credits panel's border caption, not on a
 // floating line.
-func Render(snap *domain.Snapshot, opts ViewOptions) string {
+func Render(snap *openrouter.Snapshot, opts ViewOptions) string {
 	if opts.Width <= 0 {
 		opts.Width = 80
 	}
@@ -113,7 +114,7 @@ func Render(snap *domain.Snapshot, opts ViewOptions) string {
 // dashboardBody composes the interior of the frame: the credit panels, the
 // daily table, and the model panel. It returns exactly height rows when the
 // content fits, stretching the last panel to absorb the slack.
-func dashboardBody(snap *domain.Snapshot, opts ViewOptions, lay Layout, height int) []string {
+func dashboardBody(snap *openrouter.Snapshot, opts ViewOptions, lay Layout, height int) []string {
 	inner := lay.Width
 
 	// Wide terminals get a sidebar: the small panels stack down the left and
@@ -256,7 +257,7 @@ const minTableWidth = 44
 // left column and the daily table takes a full-height right column. The model
 // panel is last on the left and absorbs the leftover rows, so both columns
 // end on the same row.
-func sidebarBody(snap *domain.Snapshot, opts ViewOptions, inner, height int) []string {
+func sidebarBody(snap *openrouter.Snapshot, opts ViewOptions, inner, height int) []string {
 	// The left column defaults to half, but widens when the freshness caption
 	// would otherwise truncate: the caption needs its own width plus the title
 	// head, the caption slack panelWithCaption reserves, and the two borders.
@@ -302,10 +303,10 @@ const minModelTailWidth = 12
 // textWidth is the panel's text width. On the shared row the model panel is
 // half the content width, so a column too narrow to show a name beside the
 // spend collapses to the single top spender instead of stacking ellipses.
-func modelPanelCount(snap *domain.Snapshot, available, textWidth int) int {
+func modelPanelCount(snap *openrouter.Snapshot, available, textWidth int) int {
 	n := 1
 	if snap != nil && len(snap.Models) > 0 {
-		n = len(domain.TopModels(domain.SortModels(snap.Models), 5))
+		n = len(openrouter.TopModels(openrouter.SortModels(snap.Models), 5))
 	}
 	if textWidth > 0 && textWidth-minModelTailWidth < minModelNameWidth {
 		return 1
@@ -323,7 +324,7 @@ func modelPanelCount(snap *domain.Snapshot, available, textWidth int) int {
 // zero sizes the panel to its content; a positive height pads it with blank rows
 // so it can sit flush beside a taller neighbour. The freshness status rides in
 // the border's caption slot, so the dashboard needs no floating status line.
-func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
+func creditsPanelWidth(snap *openrouter.Snapshot, opts ViewOptions, width, height int) []string {
 	t := opts.Styles
 	caption := statusCaption(snap, opts, width)
 	inner := width - 4
@@ -336,8 +337,8 @@ func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height in
 	acct := snap.Account
 	rw := snap.Runway
 
-	runway := domain.FormatDaysRemaining(rw)
-	if d := domain.FormatDepletionDate(rw); d != "" {
+	runway := format.FormatDaysRemaining(rw)
+	if d := format.FormatDepletionDate(rw); d != "" {
 		runway += " " + d
 	}
 	runwayStyle := t.Value
@@ -346,13 +347,13 @@ func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height in
 	}
 
 	rows := []string{
-		leader("Remaining", domain.FormatCredits(acct.Remaining), inner, t),
+		leader("Remaining", format.FormatCredits(acct.Remaining), inner, t),
 		leaderValue("Runway", runway, inner, t, runwayStyle),
 	}
-	if rw.Basis == domain.BasisUnavailable {
+	if rw.Basis == openrouter.BasisUnavailable {
 		rows = append(rows, leader("Daily burn", "analytics unavailable", inner, t))
 	} else if rw.DailyBurn > 0 {
-		rows = append(rows, leader("Daily burn", domain.FormatCredits(rw.DailyBurn)+"/day", inner, t))
+		rows = append(rows, leader("Daily burn", format.FormatCredits(rw.DailyBurn)+"/day", inner, t))
 	}
 	if height <= 0 {
 		return panelWithCaption("Credits", caption, rows, width, len(rows)+2, t)
@@ -369,7 +370,7 @@ func creditsPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, height in
 }
 
 // last30PanelWidth renders the 30-day summary panel at an explicit width.
-func last30PanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []string {
+func last30PanelWidth(snap *openrouter.Snapshot, opts ViewOptions, width int) []string {
 	t := opts.Styles
 	inner := width - 4
 	if inner < 1 {
@@ -383,14 +384,14 @@ func last30PanelWidth(snap *domain.Snapshot, opts ViewOptions, width int) []stri
 		spend += d.CreditSpend
 	}
 	rows := []string{
-		leader("Spend", domain.FormatCredits(spend), inner, t),
+		leader("Spend", format.FormatCredits(spend), inner, t),
 	}
 	// A zero request count means the API did not report it, so the row is
 	// omitted rather than shown as a misleading "0".
 	if snap.Requests > 0 {
-		rows = append(rows, leader("Requests", domain.FormatCount(snap.Requests), inner, t))
+		rows = append(rows, leader("Requests", format.FormatCount(snap.Requests), inner, t))
 	}
-	rows = append(rows, leader("Tokens", domain.FormatTokens(snap.TotalTokens), inner, t))
+	rows = append(rows, leader("Tokens", format.FormatTokens(snap.TotalTokens), inner, t))
 	if snap.CacheHitRate != nil {
 		rows = append(rows, leader("Cache hit", fmt.Sprintf("%.1f%%", *snap.CacheHitRate), inner, t))
 	}
@@ -405,22 +406,22 @@ type tokenPair struct{ label, value string }
 // the extra detail costs no additional request and no additional API key. It is
 // empty when the API reported no split, so the panel never appears as a box of
 // zeros.
-func tokenPairs(snap *domain.Snapshot) []tokenPair {
+func tokenPairs(snap *openrouter.Snapshot) []tokenPair {
 	if snap == nil {
 		return nil
 	}
 	pairs := make([]tokenPair, 0, 4)
 	if snap.TokensPrompt > 0 {
-		pairs = append(pairs, tokenPair{"Input", domain.FormatTokens(snap.TokensPrompt)})
+		pairs = append(pairs, tokenPair{"Input", format.FormatTokens(snap.TokensPrompt)})
 	}
 	if snap.TokensCompletion > 0 {
-		pairs = append(pairs, tokenPair{"Output", domain.FormatTokens(snap.TokensCompletion)})
+		pairs = append(pairs, tokenPair{"Output", format.FormatTokens(snap.TokensCompletion)})
 	}
 	if snap.CachedTokens > 0 {
-		pairs = append(pairs, tokenPair{"Cached", domain.FormatTokens(snap.CachedTokens)})
+		pairs = append(pairs, tokenPair{"Cached", format.FormatTokens(snap.CachedTokens)})
 	}
 	if snap.ReasoningTokens > 0 {
-		pairs = append(pairs, tokenPair{"Reasoning", domain.FormatTokens(snap.ReasoningTokens)})
+		pairs = append(pairs, tokenPair{"Reasoning", format.FormatTokens(snap.ReasoningTokens)})
 	}
 	return pairs
 }
@@ -439,7 +440,7 @@ func tokenPairsFitTwoUp(pairs []tokenPair, colWidth int) bool {
 }
 
 // tokenPanel renders the split as a full-width panel sized to its content.
-func tokenPanel(snap *domain.Snapshot, opts ViewOptions, width int) []string {
+func tokenPanel(snap *openrouter.Snapshot, opts ViewOptions, width int) []string {
 	return tokenPanelHeight(snap, opts, width, 0)
 }
 
@@ -447,7 +448,7 @@ func tokenPanel(snap *domain.Snapshot, opts ViewOptions, width int) []string {
 // height of zero sizes the panel to its content; a positive height pads it with
 // blank rows so it can sit flush beside a taller neighbour, exactly like the
 // credits panel. It returns nil when there is no split to show.
-func tokenPanelHeight(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
+func tokenPanelHeight(snap *openrouter.Snapshot, opts ViewOptions, width, height int) []string {
 	t := opts.Styles
 	inner := width - 4
 	if inner < 1 {
@@ -493,8 +494,8 @@ func tokenPanelHeight(snap *domain.Snapshot, opts ViewOptions, width, height int
 // dailyTablePanel renders the daily spend table as a bordered panel. The
 // offset is clamped here so a stale scroll from the app can never ask for a
 // window past the end of the series.
-func dailyTablePanel(snap *domain.Snapshot, opts ViewOptions, width, height int) []string {
-	var daily []domain.DailyUsage
+func dailyTablePanel(snap *openrouter.Snapshot, opts ViewOptions, width, height int) []string {
+	var daily []openrouter.DailyUsage
 	if snap != nil {
 		daily = snap.Daily
 	}
@@ -509,7 +510,7 @@ func dailyTablePanel(snap *domain.Snapshot, opts ViewOptions, width, height int)
 
 // dayCount is the number of days the snapshot carries, or 0 when there is no
 // snapshot yet.
-func dayCount(snap *domain.Snapshot) int {
+func dayCount(snap *openrouter.Snapshot) int {
 	if snap == nil {
 		return 0
 	}
@@ -524,7 +525,7 @@ func dayCount(snap *domain.Snapshot) int {
 // length, the model count, and the layout branch, and a second copy of that
 // arithmetic would silently disagree with what is on screen. Rendering here is
 // pure string work, and this runs once per keypress.
-func TableWindow(snap *domain.Snapshot, opts ViewOptions) int {
+func TableWindow(snap *openrouter.Snapshot, opts ViewOptions) int {
 	opts.TableOffset = 0
 	lines := strings.Split(Render(snap, opts), "\n")
 	header := []rune(boxTopLeft + boxHorizontal + " Daily spend")
@@ -593,7 +594,7 @@ func fitTableHeight(available, days int) int {
 // modelPanel renders the model spend breakdown as a bordered panel sized to its
 // rows. Rows are short names, a dot leader, and an inline meter with the share
 // at the row end.
-func modelPanel(snap *domain.Snapshot, opts ViewOptions, width, limit int) []string {
+func modelPanel(snap *openrouter.Snapshot, opts ViewOptions, width, limit int) []string {
 	return modelPanelWidth(snap, opts, width, limit, 0)
 }
 
@@ -602,7 +603,7 @@ func modelPanel(snap *domain.Snapshot, opts ViewOptions, width, limit int) []str
 // blank rows so it can sit flush beside a taller neighbour on the shared row.
 // The width is honoured here, so on a half-width column a long model name is
 // truncated by modelRow rather than overflowing into the token panel.
-func modelPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, limit, height int) []string {
+func modelPanelWidth(snap *openrouter.Snapshot, opts ViewOptions, width, limit, height int) []string {
 	t := opts.Styles
 	inner := width - 4
 	if inner < 1 {
@@ -625,13 +626,13 @@ func modelPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, limit, heig
 	// A single row goes to the top spender. TopModels would fold everything into
 	// "Other (remaining)" at limit 1, which hides the biggest model behind a
 	// useless 100% row.
-	sorted := domain.SortModels(snap.Models)
+	sorted := openrouter.SortModels(snap.Models)
 	models := sorted
 	if len(sorted) > limit {
 		if limit == 1 {
 			models = sorted[:1]
 		} else {
-			models = domain.TopModels(sorted, limit)
+			models = openrouter.TopModels(sorted, limit)
 		}
 	}
 	total := 0.0
@@ -656,9 +657,9 @@ func modelPanelWidth(snap *domain.Snapshot, opts ViewOptions, width, limit, heig
 }
 
 // modelRow renders one model as "name ······· $2.61 ▇▇▇▇ 52%".
-func modelRow(m domain.ModelUsage, total float64, width int, t Styles) string {
-	name := domain.ShortModelName(m.Model)
-	spend := domain.FormatCredits(m.CreditSpend)
+func modelRow(m openrouter.ModelUsage, total float64, width int, t Styles) string {
+	name := format.ShortModelName(m.Model)
+	spend := format.FormatCredits(m.CreditSpend)
 	ratio := 0.0
 	if total > 0 {
 		ratio = m.CreditSpend / total
@@ -699,7 +700,7 @@ func modelRow(m domain.ModelUsage, total float64, width int, t Styles) string {
 // stay timezone-independent, but the dashboard is read by a person: the clock
 // is rendered in the machine's local timezone so "Updated 17:42" matches the
 // wall clock next to the terminal.
-func headerStatus(snap *domain.Snapshot, opts ViewOptions) string {
+func headerStatus(snap *openrouter.Snapshot, opts ViewOptions) string {
 	when := ""
 	if snap != nil && !snap.GeneratedAt.IsZero() {
 		when = snap.GeneratedAt.In(time.Local).Format("15:04")
@@ -724,7 +725,7 @@ func headerStatus(snap *domain.Snapshot, opts ViewOptions) string {
 // compact "Cached 2h 14m ago" form when only that fits. The slot's room is
 // the panel width minus the title head and the slack panelWithCaption
 // reserves; anything longer is left to the panel's own truncation.
-func statusCaption(snap *domain.Snapshot, opts ViewOptions, width int) string {
+func statusCaption(snap *openrouter.Snapshot, opts ViewOptions, width int) string {
 	full := headerStatus(snap, opts)
 	if lipgloss.Width(full) <= width-19 {
 		return full

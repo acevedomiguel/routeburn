@@ -124,64 +124,20 @@ make build
 ./routeburn --version
 ```
 
-## Use as a library
+## Built on Burn Blocks
 
-Go applications can import the module root to fetch snapshots and produce the
-same schema-2 JSON as the CLI:
+RouteBurn is the terminal UI. The read-only OpenRouter engine it runs on — the
+client, snapshot and runway calculation, daily aggregation, cache,
+configuration, and credential resolution — lives in
+[Burn Blocks](https://github.com/acevedomiguel/burnblocks) as the
+`github.com/acevedomiguel/burnblocks/openrouter` package.
 
-```bash
-go get github.com/acevedomiguel/routeburn
-```
-
-```go
-package dashboard
-
-import (
-	"context"
-	"io"
-	"net/http"
-	"time"
-
-	routeburn "github.com/acevedomiguel/routeburn"
-)
-
-func writeSnapshot(
-	ctx context.Context,
-	w io.Writer,
-	httpClient *http.Client,
-	managementKey string,
-	apiKey string,
-	now time.Time,
-) error {
-	client, err := routeburn.NewClient(
-		routeburn.WithHTTPClient(httpClient),
-		routeburn.WithManagementKey(managementKey),
-		routeburn.WithAPIKey(apiKey), // optional
-		routeburn.WithClock(func() time.Time { return now }),
-	)
-	if err != nil {
-		return err
-	}
-
-	snap, err := routeburn.Fetch(ctx, client, routeburn.FetchOptions{Now: now})
-	if err != nil {
-		return err
-	}
-	return routeburn.WriteJSON(w, snap, false)
-}
-```
-
-The library never reads environment variables, keyring entries, configuration,
-or cache implicitly, and it never writes to stdout or stderr. The caller supplies
-credentials, the clock, HTTP client, and output writer. Implement the public
-`routeburn.API` interface to provide a fake or another read-only data source.
-Nullable limits and runway values remain pointers: `nil` means unavailable,
-unlimited, or not meaningful for the reported basis, never zero.
-
-The public Go API follows semantic versioning alongside the JSON schema. This
-module path stays on `v1.x.y`; a breaking API change requires a coordinated
-`/v2` module-path migration with consumers **before** any `v2` tag. Release
-automation rejects a major version that does not match `go.mod`.
+RouteBurn imports that package and adds the Bubble Tea dashboard, the `--json`
+output, and the `setup`/`logout` commands. The provider contract, the runway
+mathematics, and the `openrouter.API` interface for embedding the engine are
+documented in [Burn Blocks](https://github.com/acevedomiguel/burnblocks). This
+repository no longer publishes a public Go library of its own; its module path
+follows the binary's `v1.x.y` releases.
 
 ## Quick start
 

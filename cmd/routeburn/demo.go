@@ -9,8 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
 
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/app"
-	"github.com/acevedomiguel/routeburn/internal/domain"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -29,7 +29,7 @@ func demoModel(now func() time.Time) *app.Model {
 		Now:     now,
 		Version: version,
 		Demo:    true,
-		Fetch: func(_ context.Context, opts app.FetchOptions) (domain.Snapshot, error) {
+		Fetch: func(_ context.Context, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
 			return ui.SampleSnapshotAt(opts.Now), nil
 		},
 	})

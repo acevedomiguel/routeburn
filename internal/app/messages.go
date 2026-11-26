@@ -3,7 +3,7 @@ package app
 import (
 	"time"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // State is the top-level application state.
@@ -49,13 +49,13 @@ type refreshRequestedMsg struct{}
 // snapshotLoadedMsg carries the result of one fetch batch.
 type snapshotLoadedMsg struct {
 	gen      int
-	snapshot domain.Snapshot
+	snapshot openrouter.Snapshot
 	err      error
 }
 
 // cacheLoadedMsg carries a snapshot read from disk at startup.
 type cacheLoadedMsg struct {
-	snapshot domain.Snapshot
+	snapshot openrouter.Snapshot
 	age      time.Duration
 	err      error
 }

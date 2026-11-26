@@ -12,8 +12,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/cache"
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -24,7 +23,7 @@ type settingsWiring struct {
 	intervalPinned bool
 	validateKey    func(context.Context, string) error
 	saveKey        func(context.Context, string) error
-	rebuildAPI     func(management, apiKey string) (API, error)
+	rebuildAPI     func(management, apiKey string) (openrouter.API, error)
 	envKey         bool
 	demo           bool
 }
@@ -69,10 +68,10 @@ func openSettings(t *testing.T, m *Model) {
 
 // noopKey is a pairing of accept-everything key hooks for tests that only need
 // the row to be available.
-func noopKeyHooks() (func(context.Context, string) error, func(context.Context, string) error, func(string, string) (API, error)) {
+func noopKeyHooks() (func(context.Context, string) error, func(context.Context, string) error, func(string, string) (openrouter.API, error)) {
 	return func(context.Context, string) error { return nil },
 		func(context.Context, string) error { return nil },
-		func(string, string) (API, error) { return &fakeAPI{}, nil }
+		func(string, string) (openrouter.API, error) { return &fakeAPI{}, nil }
 }
 
 func TestSettingsOpensAndClosesRestoringScroll(t *testing.T) {
@@ -225,7 +224,7 @@ func TestSettingsKeyEntryIsHiddenValidatedAndSaved(t *testing.T) {
 	m := settingsModel(t, settingsWiring{
 		validateKey: func(_ context.Context, got string) error { validated = got; return nil },
 		saveKey:     func(_ context.Context, got string) error { stored = got; return nil },
-		rebuildAPI: func(management, apiKey string) (API, error) {
+		rebuildAPI: func(management, apiKey string) (openrouter.API, error) {
 			rebuiltManagement, rebuiltAPIKey = management, apiKey
 			return rebuilt, nil
 		},
@@ -267,7 +266,7 @@ func TestSettingsKeyEntryIsHiddenValidatedAndSaved(t *testing.T) {
 	if rebuiltManagement != key || rebuiltAPIKey != m.creds.APIKey {
 		t.Fatalf("rebuilt with management=%q apiKey=%q, want the new key and the unchanged API key", rebuiltManagement, rebuiltAPIKey)
 	}
-	if m.currentAPI() != API(rebuilt) {
+	if m.currentAPI() != openrouter.API(rebuilt) {
 		t.Error("the model did not adopt the rebuilt client")
 	}
 	if m.creds.Management != key {
@@ -287,7 +286,7 @@ func TestSettingsKeyFailureKeepsPreviousKeyAndRedacts(t *testing.T) {
 			return errors.New("server rejected " + got)
 		},
 		saveKey: func(context.Context, string) error { saved = true; return nil },
-		rebuildAPI: func(string, string) (API, error) {
+		rebuildAPI: func(string, string) (openrouter.API, error) {
 			rebuilt = true
 			return &fakeAPI{}, nil
 		},
@@ -328,7 +327,7 @@ func TestSettingsKeyRebuildFailureReportsWithoutLosingTheKey(t *testing.T) {
 	m := settingsModel(t, settingsWiring{
 		validateKey: func(context.Context, string) error { return nil },
 		saveKey:     func(_ context.Context, got string) error { stored = got; return nil },
-		rebuildAPI: func(string, string) (API, error) {
+		rebuildAPI: func(string, string) (openrouter.API, error) {
 			return nil, errors.New("openrouter: refusing non-TLS base URL")
 		},
 	})
@@ -549,7 +548,7 @@ func TestKeyEntryIsLockedWhileACheckIsInFlight(t *testing.T) {
 			persisted = append(persisted, key)
 			return nil
 		},
-		rebuildAPI: func(string, string) (API, error) { return &fakeAPI{}, nil },
+		rebuildAPI: func(string, string) (openrouter.API, error) { return &fakeAPI{}, nil },
 	})
 	openSettings(t, m)
 
@@ -591,7 +590,7 @@ func TestSupersededKeyCompletionIsDiscarded(t *testing.T) {
 	m := settingsModel(t, settingsWiring{
 		validateKey: func(context.Context, string) error { return nil },
 		saveKey:     func(context.Context, string) error { return nil },
-		rebuildAPI: func(management, _ string) (API, error) {
+		rebuildAPI: func(management, _ string) (openrouter.API, error) {
 			rebuilt = append(rebuilt, management)
 			return &fakeAPI{}, nil
 		},
@@ -623,7 +622,7 @@ func TestSupersededFetchCannotClearTheNewestCancel(t *testing.T) {
 
 	var mu sync.Mutex
 	calls := 0
-	fetch := func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+	fetch := func(ctx context.Context, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
 		mu.Lock()
 		calls++
 		n := calls
@@ -634,14 +633,14 @@ func TestSupersededFetchCannotClearTheNewestCancel(t *testing.T) {
 			// Hold the first fetch inside its work, so its cleanup runs after
 			// the replacement fetch has registered its own cancel function.
 			<-release
-			return domain.Snapshot{}, ctx.Err()
+			return openrouter.Snapshot{}, ctx.Err()
 		}
 		select {
 		case <-ctx.Done():
 			close(secondCancelled)
-			return domain.Snapshot{}, ctx.Err()
+			return openrouter.Snapshot{}, ctx.Err()
 		case <-time.After(10 * time.Second):
-			return domain.Snapshot{}, errors.New("the replacement fetch was not cancellable")
+			return openrouter.Snapshot{}, errors.New("the replacement fetch was not cancellable")
 		}
 	}
 
@@ -695,18 +694,18 @@ func TestLateStartingFetchCannotEvictTheNewerCancel(t *testing.T) {
 	newestCancelled := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 
-	olderFetch := func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+	olderFetch := func(ctx context.Context, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
 		close(olderEntered)
 		<-release
-		return domain.Snapshot{}, ctx.Err()
+		return openrouter.Snapshot{}, ctx.Err()
 	}
-	newestFetch := func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+	newestFetch := func(ctx context.Context, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
 		select {
 		case <-ctx.Done():
 			close(newestCancelled)
-			return domain.Snapshot{}, ctx.Err()
+			return openrouter.Snapshot{}, ctx.Err()
 		case <-time.After(10 * time.Second):
-			return domain.Snapshot{}, errors.New("the newest fetch was not cancellable")
+			return openrouter.Snapshot{}, errors.New("the newest fetch was not cancellable")
 		}
 	}
 
@@ -745,21 +744,21 @@ func TestLateStartingFetchCannotEvictTheNewerCancel(t *testing.T) {
 func TestStaleResponseCannotOverwriteTheCache(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "snapshot.json")
-	store := cache.NewStore(path)
+	store := openrouter.NewCacheStore(path)
 
 	var mu sync.Mutex
 	calls := 0
-	fetch := func(ctx context.Context, fo FetchOptions) (domain.Snapshot, error) {
+	fetch := func(ctx context.Context, fo openrouter.FetchOptions) (openrouter.Snapshot, error) {
 		mu.Lock()
 		calls++
 		remaining := float64(calls * 10)
 		mu.Unlock()
-		return domain.Snapshot{
-			SchemaVersion: domain.SchemaVersion,
+		return openrouter.Snapshot{
+			SchemaVersion: openrouter.SchemaVersion,
 			GeneratedAt:   fo.Now,
-			Range:         domain.DisplayRange(fo.Now),
-			Account:       domain.AccountCredits{Remaining: remaining},
-			Daily:         domain.AggregateDaily(domain.DisplayRange(fo.Now), nil),
+			Range:         openrouter.DisplayRange(fo.Now),
+			Account:       openrouter.AccountCredits{Remaining: remaining},
+			Daily:         openrouter.AggregateDaily(openrouter.DisplayRange(fo.Now), nil),
 		}, nil
 	}
 
@@ -797,18 +796,18 @@ func TestCacheWriteFollowsTheNoCacheFlag(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "snapshot.json")
 
-	fetch := func(ctx context.Context, fo FetchOptions) (domain.Snapshot, error) {
-		return domain.Snapshot{
-			SchemaVersion: domain.SchemaVersion,
+	fetch := func(ctx context.Context, fo openrouter.FetchOptions) (openrouter.Snapshot, error) {
+		return openrouter.Snapshot{
+			SchemaVersion: openrouter.SchemaVersion,
 			GeneratedAt:   fo.Now,
-			Range:         domain.DisplayRange(fo.Now),
-			Daily:         domain.AggregateDaily(domain.DisplayRange(fo.Now), nil),
+			Range:         openrouter.DisplayRange(fo.Now),
+			Daily:         openrouter.AggregateDaily(openrouter.DisplayRange(fo.Now), nil),
 		}, nil
 	}
 
 	m := testModel(t, testModelOptions{cachePath: path, fetch: fetch})
 	feed(m, m.refreshCommands()())
-	if _, err := cache.NewStore(path).Load(); err != nil {
+	if _, err := openrouter.NewCacheStore(path).Load(); err != nil {
 		t.Fatalf("an accepted response must be cached: %v", err)
 	}
 
@@ -816,7 +815,7 @@ func TestCacheWriteFollowsTheNoCacheFlag(t *testing.T) {
 	noCache := New(Deps{
 		Config: Config{RefreshInterval: 10 * time.Second, NoCache: true},
 		Creds:  Creds{Management: "sk-or-v1-x"},
-		Cache:  cache.NewStore(offPath),
+		Cache:  openrouter.NewCacheStore(offPath),
 		Now:    fixedNow,
 		Fetch:  fetch,
 	})
@@ -840,4 +839,4 @@ func TestSettingsOwnsTheKeyboardWhileOpen(t *testing.T) {
 	}
 }
 
-var _ = domain.Snapshot{}
+var _ = openrouter.Snapshot{}

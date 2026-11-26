@@ -10,9 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"charm.land/bubbles/v2/spinner"
-	"github.com/acevedomiguel/routeburn/internal/cache"
-	"github.com/acevedomiguel/routeburn/internal/domain"
-	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -24,19 +22,19 @@ type Model struct {
 	// client, while replacing the management key swaps it from Update, so the
 	// pair must be synchronized.
 	apiMu sync.RWMutex
-	api   API
+	api   openrouter.API
 
 	creds Creds
-	cache *cache.Store
-	save  func(domain.Snapshot) error
+	cache *openrouter.CacheStore
+	save  func(openrouter.Snapshot) error
 	now   func() time.Time
 	loc   *time.Location
 
 	state       State
 	width       int
 	height      int
-	snapshot    *domain.Snapshot
-	previous    *domain.Snapshot
+	snapshot    *openrouter.Snapshot
+	previous    *openrouter.Snapshot
 	loading     bool
 	refreshing  bool
 	cached      bool
@@ -69,7 +67,7 @@ type Model struct {
 	intervalPinned      bool
 	validateKey         func(context.Context, string) error
 	saveKey             func(context.Context, string) error
-	rebuildAPI          func(management, apiKey string) (API, error)
+	rebuildAPI          func(management, apiKey string) (openrouter.API, error)
 	envKey              bool
 	settingsFocus       int
 	settingsIndex       int
@@ -93,19 +91,19 @@ type Model struct {
 	cancelFetch context.CancelFunc
 	cancelGen   int
 
-	fetchFn func(context.Context, FetchOptions) (domain.Snapshot, error)
+	fetchFn func(context.Context, openrouter.FetchOptions) (openrouter.Snapshot, error)
 }
 
 // currentAPI returns the API client in use. It is safe to call from a fetch
 // goroutine.
-func (m *Model) currentAPI() API {
+func (m *Model) currentAPI() openrouter.API {
 	m.apiMu.RLock()
 	defer m.apiMu.RUnlock()
 	return m.api
 }
 
 // setAPI replaces the API client, used when the management key is replaced.
-func (m *Model) setAPI(api API) {
+func (m *Model) setAPI(api openrouter.API) {
 	m.apiMu.Lock()
 	m.api = api
 	m.apiMu.Unlock()
@@ -177,8 +175,8 @@ func (c Creds) HasManagement() bool { return c.Management != "" }
 type Deps struct {
 	Config   Config
 	Creds    Creds
-	API      API
-	Cache    *cache.Store
+	API      openrouter.API
+	Cache    *openrouter.CacheStore
 	Now      func() time.Time
 	Location *time.Location
 	// Version is the build version shown in Help; empty means "dev".
@@ -186,7 +184,7 @@ type Deps struct {
 	// Demo labels the title row as synthetic fixture data.
 	Demo bool
 	// Fetch overrides the default snapshot builder (tests).
-	Fetch func(context.Context, FetchOptions) (domain.Snapshot, error)
+	Fetch func(context.Context, openrouter.FetchOptions) (openrouter.Snapshot, error)
 
 	// IntervalOptions are the selectable automatic-refresh intervals, in
 	// ascending order. Nil selects ui.DefaultIntervalOptions.
@@ -205,7 +203,7 @@ type Deps struct {
 	SaveKey func(context.Context, string) error
 	// RebuildAPI builds a fresh API client for a replaced management key, so
 	// the new credential takes effect without a restart.
-	RebuildAPI func(management, apiKey string) (API, error)
+	RebuildAPI func(management, apiKey string) (openrouter.API, error)
 	// EnvKey is true when ROUTEBURN_MANAGEMENT_KEY supplies the key, so an
 	// in-app replacement cannot take effect until it is unset.
 	EnvKey bool
@@ -256,8 +254,8 @@ func New(deps Deps) *Model {
 	if deps.Fetch != nil {
 		m.fetchFn = deps.Fetch
 	} else {
-		m.fetchFn = func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
-			return FetchSnapshot(ctx, m.currentAPI(), opts)
+		m.fetchFn = func(ctx context.Context, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
+			return openrouter.Fetch(ctx, m.currentAPI(), opts)
 		}
 	}
 
@@ -278,7 +276,7 @@ func New(deps Deps) *Model {
 				m.cacheAge = now().Sub(snap.GeneratedAt)
 			}
 			m.state = StateReady
-		case errors.Is(err, cache.ErrNoSnapshot):
+		case errors.Is(err, openrouter.ErrNoSnapshot):
 			// Nothing to show yet.
 		default:
 			m.errorBanner = "Ignored an unreadable cache - " + credRedact(err.Error())
@@ -298,7 +296,7 @@ func (m *Model) SetSize(w, h int) {
 func (m *Model) State() State { return m.state }
 
 // Snapshot returns the displayed snapshot, if any.
-func (m *Model) Snapshot() *domain.Snapshot { return m.snapshot }
+func (m *Model) Snapshot() *openrouter.Snapshot { return m.snapshot }
 
 // Banner returns the current error banner text.
 func (m *Model) Banner() string {
@@ -380,7 +378,7 @@ func (m *Model) refreshCommands() tea.Cmd {
 		m.setCancel(gen, cancel)
 		defer m.clearCancel(gen)
 
-		snap, err := fetch(ctx, FetchOptions{
+		snap, err := fetch(ctx, openrouter.FetchOptions{
 			Now:      now,
 			Location: loc,
 			Previous: previous,
@@ -411,8 +409,8 @@ func (m *Model) scheduleTick() tea.Cmd {
 }
 
 // fetchNow is a small helper used by tests and the JSON path.
-func fetchOnce(ctx context.Context, api API, opts FetchOptions) (domain.Snapshot, error) {
-	return FetchSnapshot(ctx, api, opts)
+func fetchOnce(ctx context.Context, api openrouter.API, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
+	return openrouter.Fetch(ctx, api, opts)
 }
 
 // NextRefreshAllowed reports the client's server-directed throttle.
@@ -425,5 +423,5 @@ func (m *Model) NextRefreshAllowedFromServer() time.Time {
 }
 
 // Ensure err is referenced in this file for clarity of intent.
-var _ = or.ErrMissingManagementKey
+var _ = openrouter.ErrMissingManagementKey
 var _ = fmt.Sprintf

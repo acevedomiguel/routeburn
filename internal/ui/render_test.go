@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 func plainStyles() Styles { return NewStyles(false) }
@@ -127,7 +127,7 @@ func TestRenderOmitsThePerKeyLimit(t *testing.T) {
 
 func TestRenderRunwayUnavailable(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	snap.Runway = domain.RunwayEstimate{Basis: domain.BasisUnavailable}
+	snap.Runway = openrouter.RunwayEstimate{Basis: openrouter.BasisUnavailable}
 	out := Render(&snap, ViewOptions{Width: 90, Height: 40, Styles: plainStyles(), Now: fixedNow()})
 	if !strings.Contains(out, "Unavailable") {
 		t.Fatalf("expected unavailable runway: %q", out)

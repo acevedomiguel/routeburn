@@ -8,7 +8,8 @@ import (
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/format"
 )
 
 // minTableHeight is the smallest daily table panel worth drawing: two borders,
@@ -45,7 +46,7 @@ type dailyColumn struct {
 // The frame is drawn by panelWithCaption; bubbles/table supplies the header,
 // the cell rendering, and the row windowing, so the panel's own border and the
 // app's scroll plumbing stay in charge of the geometry.
-func DailyTable(daily []domain.DailyUsage, opts DailyTableOptions) []string {
+func DailyTable(daily []openrouter.DailyUsage, opts DailyTableOptions) []string {
 	height := maxInt(opts.Height, minTableHeight)
 	width := maxInt(opts.Width, 24)
 	st := opts.Styles
@@ -113,12 +114,12 @@ func DailyTable(daily []domain.DailyUsage, opts DailyTableOptions) []string {
 }
 
 // dayCells renders one day's values in column order.
-func dayCells(d domain.DailyUsage) []string {
+func dayCells(d openrouter.DailyUsage) []string {
 	return []string{
 		d.Day.Format("Jan 02"),
-		domain.FormatCredits(d.CreditSpend),
-		domain.FormatTokens(d.Tokens),
-		domain.FormatCount(d.Requests),
+		format.FormatCredits(d.CreditSpend),
+		format.FormatTokens(d.Tokens),
+		format.FormatCount(d.Requests),
 		formatCacheRate(d.CachedTokens, d.TokensPrompt),
 	}
 }
@@ -144,7 +145,7 @@ func formatCacheRate(cached, prompt int64) string {
 // the ones the API never reported, so a fresh account does not get three
 // columns of zeros. Widths plus the two padding columns per cell fill a body
 // row exactly: sum(width) + 2*len(cols) == panelWidth-4.
-func dailyColumns(daily []domain.DailyUsage, panelWidth int) []dailyColumn {
+func dailyColumns(daily []openrouter.DailyUsage, panelWidth int) []dailyColumn {
 	hasTokens, hasReqs, hasCache := false, false, false
 	for _, d := range daily {
 		if d.Tokens > 0 {
@@ -277,7 +278,7 @@ func tblStyles(st Styles) table.Styles {
 
 // totalRow pins the all-days totals under the visible window, so scrolling
 // never hides the number the panel exists to show.
-func totalRow(daily []domain.DailyUsage, cols []dailyColumn, st Styles) string {
+func totalRow(daily []openrouter.DailyUsage, cols []dailyColumn, st Styles) string {
 	var spend float64
 	var tokens, reqs, cached, prompt int64
 	for _, d := range daily {
@@ -289,9 +290,9 @@ func totalRow(daily []domain.DailyUsage, cols []dailyColumn, st Styles) string {
 	}
 	cells := []string{
 		fmt.Sprintf("%d days", len(daily)),
-		domain.FormatCredits(spend),
-		domain.FormatTokens(tokens),
-		domain.FormatCount(reqs),
+		format.FormatCredits(spend),
+		format.FormatTokens(tokens),
+		format.FormatCount(reqs),
 		formatCacheRate(cached, prompt),
 	}
 	dataCols, hasBar := 0, false
@@ -341,7 +342,7 @@ func tableDayRows(height int) int {
 
 // peakSpend is the largest single-day spend in the series: the scale every
 // bar and heat colour is measured against.
-func peakSpend(daily []domain.DailyUsage) float64 {
+func peakSpend(daily []openrouter.DailyUsage) float64 {
 	peak := 0.0
 	for _, d := range daily {
 		if d.CreditSpend > peak {

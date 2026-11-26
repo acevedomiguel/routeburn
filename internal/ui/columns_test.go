@@ -6,7 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // The model card spans the full content width, so the spend column must survive
@@ -214,7 +214,7 @@ func TestShortTerminalDropsTokensAndKeepsModelFullWidth(t *testing.T) {
 // token panel off the terminal.
 func TestModelPanelFitsTheNarrowColumnOnTheSharedRow(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
-	snap.Models = []domain.ModelUsage{
+	snap.Models = []openrouter.ModelUsage{
 		{Model: "anthropic/a-very-long-model-name-that-cannot-fit", CreditSpend: 9.5},
 		{Model: "openai/another-extremely-long-model-identifier", CreditSpend: 4.5},
 	}

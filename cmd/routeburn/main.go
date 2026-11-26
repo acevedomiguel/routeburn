@@ -10,11 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/acevedomiguel/routeburn/internal/app"
-	"github.com/acevedomiguel/routeburn/internal/cache"
-	"github.com/acevedomiguel/routeburn/internal/config"
-	"github.com/acevedomiguel/routeburn/internal/credentials"
-	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // version is overridden at release time via -ldflags "-X main.version=...".
@@ -80,7 +76,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return runDemo(stdin, stdout, stderr)
 	}
 
-	paths, err := config.DefaultPaths()
+	paths, err := openrouter.DefaultPaths()
 	if err != nil {
 		fmt.Fprintf(stderr, "routeburn: %v\n", err)
 		return exitFailure
@@ -201,8 +197,8 @@ func parse(args []string, stderr io.Writer) (options, error) {
 	if opts.refresh < 0 {
 		return options{}, &usageError{msg: "--refresh must not be negative"}
 	}
-	if opts.refresh > 0 && opts.refresh < config.MinRefreshInterval {
-		return options{}, &usageError{msg: fmt.Sprintf("--refresh must be %s or greater, or 0 to disable", config.MinRefreshInterval)}
+	if opts.refresh > 0 && opts.refresh < openrouter.MinRefreshInterval {
+		return options{}, &usageError{msg: fmt.Sprintf("--refresh must be %s or greater, or 0 to disable", openrouter.MinRefreshInterval)}
 	}
 	return opts, nil
 }
@@ -210,13 +206,13 @@ func parse(args []string, stderr io.Writer) (options, error) {
 // runtime bundles everything the dashboard and JSON paths need.
 type runtime struct {
 	opts   options
-	cfg    config.Config
-	creds  credentials.Creds
-	store  *credentials.Store
-	client *or.Client
-	cache  *cache.Store
+	cfg    openrouter.Config
+	creds  openrouter.Creds
+	store  *openrouter.CredentialStore
+	client *openrouter.Client
+	cache  *openrouter.CacheStore
 	now    func() time.Time
-	paths  config.Paths
+	paths  openrouter.Paths
 }
 
 // configTarget is the configuration file a Settings change is written back to:
@@ -233,17 +229,17 @@ var errNoCredentials = errors.New("no credentials configured")
 
 // newAPIClient builds the OpenRouter client from explicit credentials. Tests
 // replace it so no test reaches the network.
-var newAPIClient = func(management, apiKey string) (*or.Client, error) {
-	return or.NewClient(
-		or.WithManagementKey(management),
-		or.WithAPIKey(apiKey),
-		or.WithVersion(version),
+var newAPIClient = func(management, apiKey string) (*openrouter.Client, error) {
+	return openrouter.NewClient(
+		openrouter.WithManagementKey(management),
+		openrouter.WithAPIKey(apiKey),
+		openrouter.WithVersion(version),
 	)
 }
 
 // buildRuntime resolves configuration and credentials. It returns
 // errNoCredentials (exit 3) when the management key is missing.
-func buildRuntime(opts options, paths config.Paths) (*runtime, error) {
+func buildRuntime(opts options, paths openrouter.Paths) (*runtime, error) {
 	env := environment()
 
 	configPaths := []string{paths.ConfigFile}
@@ -251,18 +247,18 @@ func buildRuntime(opts options, paths config.Paths) (*runtime, error) {
 		configPaths = []string{opts.configPath}
 	}
 
-	overrides := config.Overrides{NoColor: opts.noColor}
+	overrides := openrouter.Overrides{NoColor: opts.noColor}
 	if opts.refreshSet {
 		interval := opts.refresh
 		overrides.RefreshInterval = &interval
 	}
 
-	cfg, err := config.Load(configPaths, env, overrides)
+	cfg, err := openrouter.LoadConfig(configPaths, env, overrides)
 	if err != nil {
 		return nil, err
 	}
 
-	store := credentials.NewStore(credentials.Options{
+	store := openrouter.NewCredentialStore(openrouter.CredentialOptions{
 		Keyring:             osKeyringFor(cfg),
 		ManagementTokenFile: paths.ManagementTokenFile(),
 		APIKeyFile:          paths.APIKeyFile(),
@@ -281,9 +277,9 @@ func buildRuntime(opts options, paths config.Paths) (*runtime, error) {
 		return nil, err
 	}
 
-	var cacheStore *cache.Store
+	var cacheStore *openrouter.CacheStore
 	if !opts.noCache {
-		cacheStore = cache.NewStore(paths.CacheFile)
+		cacheStore = openrouter.NewCacheStore(paths.CacheFile)
 	}
 
 	return &runtime{
@@ -316,11 +312,11 @@ func environment() map[string]string {
 
 // osKeyringFor returns the platform keyring only when it is enabled so that a
 // disabled keyring never triggers a D-Bus connection.
-func osKeyringFor(cfg config.Config) credentials.Keyring {
+func osKeyringFor(cfg openrouter.Config) openrouter.Keyring {
 	if !cfg.Keyring {
 		return nil
 	}
-	return credentials.NewOSKeyring()
+	return openrouter.NewOSKeyring()
 }
 
 func setupInstructions() string {
@@ -347,11 +343,11 @@ func printUsage(w io.Writer) {
 		"  --help                    Print this help and exit\n"+
 		"\nExit codes:\n"+
 		"  0 success   1 runtime or API failure   2 usage error   3 missing credentials\n",
-		config.MinRefreshInterval)
+		openrouter.MinRefreshInterval)
 }
 
 // jsonSnapshotNow is the clock used by the JSON path; tests replace it.
 var jsonSnapshotNow = func() time.Time { return time.Now() }
 
 // appFetch is the snapshot builder used by both output paths.
-var appFetch = app.FetchSnapshot
+var appFetch = openrouter.Fetch

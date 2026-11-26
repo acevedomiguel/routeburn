@@ -9,11 +9,15 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/mattn/go-isatty v0.0.24
-	github.com/zalando/go-keyring v0.2.8
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	github.com/zalando/go-keyring v0.2.8 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+require (
+	github.com/acevedomiguel/burnblocks v1.6.0
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
