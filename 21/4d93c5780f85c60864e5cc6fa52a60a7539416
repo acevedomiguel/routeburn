@@ -1,0 +1,107 @@
+internal/app/update.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 10-11,341-343
+cmd/routeburn/commands.go
+  s_58b6f55c0833f4::t_d0aecbcd629dfa 52,87,155
+  s_58b6f55c0833f4::t_407ed4ecbc0eb4 274
+  s_58b6f55c0833f4::t_ecbbf2df426335 16,22,33,38,66,68,71,75,80,140,153,166,169,189-192,202,208-209,213,223,275-276
+  s_58b6f55c0833f4::t_c6dfbc3cf460a2 214
+cmd/routeburn/setup_tui.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 13,30,38,40,47,117-119,137,149-150,158,181
+  s_58b6f55c0833f4::t_407ed4ecbc0eb4 39
+internal/ui/dailytable_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 11-12,17,19,21,98-99,214,257
+internal/app/title_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 6-7,19-20,27-28
+internal/format/shortmodel_test.go
+  s_58b6f55c0833f4::t_621daac5d0150d 1-38
+internal/app/redact.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 4,9
+internal/ui/dailytable.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 11-12,49,117,120-122,148,281,293-295,345
+cmd/routeburn/json_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 13,43-46,55-56,58,71-72,97,103,110,131,138,156,158-159,161-164
+cmd/routeburn/setup_flow_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 8,60,69
+internal/app/model.go
+  s_58b6f55c0833f4::t_407ed4ecbc0eb4 94,187,257,381
+  s_58b6f55c0833f4::t_ecbbf2df426335 13,29,36-37,279,299,426
+  s_58b6f55c0833f4::t_8f35f48c602843 28,179
+  s_58b6f55c0833f4::t_3d502c75028f96 25,70,99,106,178,206,258,412-413
+internal/ui/summary.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 8-9,21,34-35,40
+site/index.html
+  s_58b6f55c0833f4::t_938a2ecba9987c 246-248
+internal/app/settings_test.go
+  s_58b6f55c0833f4::t_3d502c75028f96 26,71,74,227,289,330,551,593
+  s_58b6f55c0833f4::t_407ed4ecbc0eb4 625,697,702,751,799
+  s_58b6f55c0833f4::t_ded70615220cc8 269
+  s_58b6f55c0833f4::t_ecbbf2df426335 15,636,641,643,700,706,708,747,756-757,759-761,800-801,803-804,810,818,842
+internal/format/format.go
+  s_58b6f55c0833f4::t_f2f2109d2546e5 1-177
+internal/ui/columns_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 9,217
+cmd/routeburn/settings_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 11,17,29,38,113-118
+internal/app/messages.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 6,52,58
+internal/ui/ui_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 9,148
+README.md
+  s_58b6f55c0833f4::t_f5e9136956c272 127-140
+cmd/routeburn/main.go
+  s_58b6f55c0833f4::t_407ed4ecbc0eb4 211
+  s_58b6f55c0833f4::t_d0aecbcd629dfa 353
+  s_58b6f55c0833f4::t_ecbbf2df426335 13,79,200-201,209-210,212,215,232-236,242,250,256,261,282,315,319,346
+  s_58b6f55c0833f4::t_27ed2a23c576e2 213,280
+internal/app/cancel_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 11,44,46,96,98
+  s_58b6f55c0833f4::t_407ed4ecbc0eb4 39,92
+internal/ui/dashboard_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 9,169-171
+internal/ui/render_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 9,130
+AGENTS.md
+  s_58b6f55c0833f4::t_1bf11efd72c771 16-17,26-30,39-41,46-49
+go.mod
+  s_58b6f55c0833f4::t_3664c40c644133 20
+  s_58b6f55c0833f4::t_19c1758444e1e1 15-19
+internal/app/testapi_test.go
+  s_58b6f55c0833f4::t_c6dfbc3cf460a2 11
+  s_58b6f55c0833f4::t_56adc3c0052136 1-10,12-67
+cmd/routeburn/demo.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 12
+  s_58b6f55c0833f4::t_d0aecbcd629dfa 32
+internal/app/settings.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 12,241
+internal/format/format_test.go
+  s_58b6f55c0833f4::t_985e0dab671379 38-39,41,43-58,63-80
+  s_58b6f55c0833f4::t_25c6c4a344d7e3 1-37,40,42,59-62,81-82
+internal/app/model_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 14,34,47-48,50-53,127,129-130,132-134,173-175,177-178,204,245,251,554,569
+  s_58b6f55c0833f4::t_407ed4ecbc0eb4 46,76,568
+  s_58b6f55c0833f4::t_8f35f48c602843 32
+internal/ui/fixture.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 6,11-13,20,34-35,38,43,51,63,69,75
+cmd/routeburn/example_test.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 8,18,28,43,57
+internal/ui/cards.go
+  s_58b6f55c0833f4::t_ecbbf2df426335 11-12,66,117,260,306,309,327,340-341,350,353,356,373,387,392,394,409,415,418,421,424,443,451,497-498,513,528,597,606,629,635,660-662,703,728
+go.sum
+  s_58b6f55c0833f4::t_7d719a4be42bd9 7-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "214d93c5780f85c60864e5cc6fa52a60a7539416",
+  "prompts": {},
+  "sessions": {
+    "s_58b6f55c0833f4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_de8e37bb1ffeg7g6B9LpPtCNn5",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    }
+  }
+}
