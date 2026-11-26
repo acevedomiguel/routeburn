@@ -10,9 +10,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/config"
-	"github.com/acevedomiguel/routeburn/internal/credentials"
-	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -29,7 +27,7 @@ const (
 // terminal rendering stays consistent with the rest of the app.
 type setupModel struct {
 	opts   options
-	paths  config.Paths
+	paths  openrouter.Paths
 	step   setupStep
 	width  int
 	height int
@@ -37,16 +35,16 @@ type setupModel struct {
 	styles ui.Styles
 	banner string
 	notice string
-	creds  credentials.Creds
-	store  *credentials.Store
-	client *or.Client
+	creds  openrouter.Creds
+	store  *openrouter.CredentialStore
+	client *openrouter.Client
 	now    func() time.Time
 }
 
 // validationMsg carries the result of a live credential check.
 type validationMsg struct{ err error }
 
-func newSetupModel(opts options, paths config.Paths) *setupModel {
+func newSetupModel(opts options, paths openrouter.Paths) *setupModel {
 	input := textinput.New()
 	input.EchoMode = textinput.EchoPassword
 	input.EchoCharacter = '*'
@@ -116,9 +114,9 @@ func (s *setupModel) submit() (tea.Model, tea.Cmd) {
 		s.step = setupValidating
 		management := s.creds.Management
 		return s, func() tea.Msg {
-			client, err := or.NewClient(
-				or.WithManagementKey(management),
-				or.WithVersion(version),
+			client, err := openrouter.NewClient(
+				openrouter.WithManagementKey(management),
+				openrouter.WithVersion(version),
 			)
 			if err != nil {
 				return validationMsg{err: err}
@@ -136,7 +134,7 @@ func (s *setupModel) handleValidation(msg validationMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		// Keep the entered token in memory so retry needs no retyping.
 		s.step = setupManagement
-		s.banner = "Validation failed: " + credentials.Redact(msg.err.Error())
+		s.banner = "Validation failed: " + openrouter.Redact(msg.err.Error())
 		s.notice = "Press Enter to retry, or Esc to cancel."
 		return s, nil
 	}
@@ -148,8 +146,8 @@ func (s *setupModel) saveAndQuit() tea.Cmd {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := s.store.Save(ctx, credentials.KindManagement, s.creds.Management); err != nil {
-		s.banner = "Could not store the management key: " + credentials.Redact(err.Error())
+	if err := s.store.Save(ctx, openrouter.CredentialManagement, s.creds.Management); err != nil {
+		s.banner = "Could not store the management key: " + openrouter.Redact(err.Error())
 		return nil
 	}
 
@@ -157,7 +155,7 @@ func (s *setupModel) saveAndQuit() tea.Cmd {
 	if s.opts.configPath != "" {
 		cfgPath = s.opts.configPath
 	}
-	if err := config.WriteSample(cfgPath); err != nil {
+	if err := openrouter.WriteSample(cfgPath); err != nil {
 		s.banner = "Credentials saved, but the configuration could not be written: " + err.Error()
 		return nil
 	}
@@ -180,7 +178,7 @@ func (s *setupModel) View() tea.View {
 }
 
 // runSetupInteractive runs the wizard and reports the outcome.
-func runSetupInteractive(paths config.Paths, opts options, stdin io.Reader, stdout, stderr io.Writer) int {
+func runSetupInteractive(paths openrouter.Paths, opts options, stdin io.Reader, stdout, stderr io.Writer) int {
 	model := newSetupModel(opts, paths)
 	program := tea.NewProgram(model, tea.WithInput(stdin), tea.WithOutput(stdout))
 	final, err := program.Run()

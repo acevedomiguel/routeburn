@@ -9,7 +9,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/credentials"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -238,7 +238,7 @@ func (m *Model) submitKey() (tea.Model, tea.Cmd) {
 	gen := m.keyGen
 
 	validate, save := m.validateKey, m.saveKey
-	redactor := credentials.NewRedactor(management)
+	redactor := openrouter.NewRedactor(management)
 	return m, func() tea.Msg {
 		validateCtx, cancelValidate := context.WithTimeout(context.Background(), keyUpdateTimeout)
 		err := validate(validateCtx, management)

@@ -6,7 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // The dashboard must fill the alternative screen exactly: a header, a body, a
@@ -166,9 +166,9 @@ func TestFooterSpansTheFullWidth(t *testing.T) {
 func TestFooterHasNoPaginationDotsWhenBodyFits(t *testing.T) {
 	snap := SampleSnapshotAt(fixedNow())
 	snap.Models = append(snap.Models,
-		domain.ModelUsage{Model: "google/gemini-3-pro", CreditSpend: 0.9},
-		domain.ModelUsage{Model: "meta/llama-4-8b", CreditSpend: 0.4},
-		domain.ModelUsage{Model: "mistral/large-3", CreditSpend: 0.2},
+		openrouter.ModelUsage{Model: "google/gemini-3-pro", CreditSpend: 0.9},
+		openrouter.ModelUsage{Model: "meta/llama-4-8b", CreditSpend: 0.4},
+		openrouter.ModelUsage{Model: "mistral/large-3", CreditSpend: 0.2},
 	)
 	for _, h := range []int{16, 20, 40} {
 		for _, w := range []int{60, 80, 140} {

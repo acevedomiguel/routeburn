@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 func TestClassifyLayout(t *testing.T) {
@@ -145,7 +145,7 @@ func TestSnapshotFixtureIsSanitized(t *testing.T) {
 func TestSampleSnapshotMatchesRange(t *testing.T) {
 	now := time.Date(2026, 11, 21, 15, 42, 0, 0, time.UTC)
 	snap := SampleSnapshotAt(now)
-	rng := domain.DisplayRange(now)
+	rng := openrouter.DisplayRange(now)
 	if !snap.Range.Start.Equal(rng.Start) || !snap.Range.End.Equal(rng.End) {
 		t.Errorf("range = %+v, want %+v", snap.Range, rng)
 	}

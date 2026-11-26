@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/acevedomiguel/routeburn/internal/config"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // The example config must stay loadable, otherwise the documented sample rots.
@@ -15,7 +15,7 @@ func TestExampleConfigIsValid(t *testing.T) {
 		t.Fatalf("config.example.yaml is missing: %v", err)
 	}
 
-	cfg, err := config.Load([]string{path}, map[string]string{})
+	cfg, err := openrouter.LoadConfig([]string{path}, map[string]string{})
 	if err != nil {
 		t.Fatalf("config.example.yaml does not load: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestExampleConfigIsValid(t *testing.T) {
 	if cfg.RefreshInterval.String() != "10s" {
 		t.Errorf("refresh_interval = %s", cfg.RefreshInterval)
 	}
-	if cfg.RangeDays != config.SupportedRangeDays {
+	if cfg.RangeDays != openrouter.SupportedRangeDays {
 		t.Errorf("range_days = %d", cfg.RangeDays)
 	}
 	if cfg.Theme != "auto" || cfg.Color != "auto" {
@@ -40,7 +40,7 @@ func TestExampleConfigIsValid(t *testing.T) {
 func TestSampleWriterMatchesExample(t *testing.T) {
 	dir := t.TempDir()
 	written := filepath.Join(dir, "config.yaml")
-	if err := config.WriteSample(written); err != nil {
+	if err := openrouter.WriteSample(written); err != nil {
 		t.Fatalf("WriteSample: %v", err)
 	}
 
@@ -54,7 +54,7 @@ func TestSampleWriterMatchesExample(t *testing.T) {
 	}
 
 	// The written sample is the canonical subset; the example adds comments.
-	cfg, err := config.Load([]string{written}, map[string]string{})
+	cfg, err := openrouter.LoadConfig([]string{written}, map[string]string{})
 	if err != nil {
 		t.Fatalf("written sample does not load: %v", err)
 	}

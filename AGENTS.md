@@ -13,7 +13,8 @@ RouteBurn-specific contracts.
   fallback for the regular key only and must never satisfy the management slot.
 - Never expose credentials, authorization headers, raw API response bodies, or
   real account data in logs, errors, JSON, cache, UI, tests, fixtures, or website
-  imagery. Route user-visible errors through `internal/credentials/redact.go`.
+  imagery. Route user-visible errors through `openrouter.Redact`, or
+  `internal/app/redact.go`, which wraps it.
 - Tests use synthetic fixtures, never sanitized real exports. They must not
   access the real network, keyring, user configuration, cache, or credentials.
 - Preserve the documented TLS and loopback-test exceptions, redirect handling,
@@ -22,10 +23,11 @@ RouteBurn-specific contracts.
   files remain `0600` inside `0700` directories; insecure files are refused
   before reading. Setup validates before storage, and logout removes only
   RouteBurn-owned local entries.
-- The module-root `routeburn` package is a headless public library facade. Its
-  callers supply credentials, clocks, HTTP clients, and writers explicitly; it
-  must never read env, keyring, config, or cache implicitly or write stdout or
-  stderr. Do not expose the credential store or `internal/ui` through it.
+- RouteBurn is the terminal UI and CLI only. The OpenRouter engine — the
+  read-only client, snapshot and runway calculation, daily aggregation, cache,
+  configuration, and credential resolution — lives in
+  `github.com/acevedomiguel/burnblocks/openrouter`. Do not reintroduce a local
+  copy of any of it, and do not publish a public Go library from this module.
 
 ## Snapshots and application behavior
 
@@ -34,18 +36,17 @@ RouteBurn-specific contracts.
   replace newer data.
 - Cache snapshots remain versioned, aggregate-only, atomically replaced, and
   explicitly labelled by age. Cached runway must never appear live.
-- Keep transport types and credentials out of `internal/domain`. Keep rendering
-  in `internal/ui` separate from fetching and application state transitions.
+- Keep rendering in `internal/ui` separate from fetching and application state
+  transitions. `internal/format` holds RouteBurn's own display formatting; the
+  headless calculations live in burnblocks.
 - Domain calculations use injected clocks and half-open UTC intervals. Display
   includes the current partial UTC day; runway uses the preceding 30 complete
   UTC days. Preserve negative balances, low-confidence states, and the documented
   no-spend, unavailable, and beyond-horizon outcomes.
-- Treat `internal/app/json.go` and the module-root facade in `routeburn.go`,
-  `client.go`, and `json.go` as the stable schema-2 and Go library contracts.
-  Preserve nullable limits and non-numeric runway values; coordinate intentional
-  changes with `internal/domain/snapshot.go`, cache compatibility, docs, and
-  fixtures. Breaking Go API changes require a coordinated major module-path
-  migration, not an in-place break.
+- Treat the schema-2 `--json` output as a stable contract. Its projection and
+  snapshot types now live in `burnblocks/openrouter`; preserve nullable limits
+  and non-numeric runway values, and coordinate intentional schema changes with
+  Burn Blocks, cache compatibility, docs, and fixtures.
 - Preserve CLI exit codes `0/1/2/3`, non-interactive missing-credential behavior
   in JSON mode, JSON on stdout, and diagnostics on stderr.
 
@@ -111,7 +112,5 @@ Run checks relevant to the changed area and report anything unavailable:
   `npm run check:lighthouse`; CI expects accessibility, best-practices, and SEO
   scores of 100.
 - Release tooling: `npm run check:release-notes` and `npm run check:module-version`.
-- Public library changes: `bash scripts/check-library-consumer.sh`, which uses a
-  separate temporary module, synthetic API, and no external network.
 - Use `node tests/site/serve.mjs 8321` when a preview must emulate the production
   `/routeburn/` base path and 404 behavior.

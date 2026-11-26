@@ -5,7 +5,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/format"
 )
 
 // lipglossWidth is the printable width of a string in display cells. Cells
@@ -17,7 +18,7 @@ func lipglossWidth(s string) int {
 
 // ChartSummary is the text alternative for the chart, used by tests and
 // screen readers.
-func ChartSummary(daily []domain.DailyUsage) string {
+func ChartSummary(daily []openrouter.DailyUsage) string {
 	if len(daily) == 0 {
 		return "No daily data available."
 	}
@@ -30,13 +31,13 @@ func ChartSummary(daily []domain.DailyUsage) string {
 		}
 	}
 	return fmt.Sprintf("30-day spend %s; peak %s on %s",
-		domain.FormatCredits(total),
-		domain.FormatCredits(peak.CreditSpend),
+		format.FormatCredits(total),
+		format.FormatCredits(peak.CreditSpend),
 		peak.Day.UTC().Format("Jan 02"))
 }
 
 // DateRangeLabel describes the chart window for headers.
-func DateRangeLabel(r domain.TimeRange) string {
+func DateRangeLabel(r openrouter.TimeRange) string {
 	if r.Start.IsZero() || r.End.IsZero() {
 		return ""
 	}

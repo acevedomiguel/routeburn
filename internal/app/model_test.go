@@ -11,9 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/cache"
-	"github.com/acevedomiguel/routeburn/internal/domain"
-	or "github.com/acevedomiguel/routeburn/internal/openrouter"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -31,9 +29,9 @@ func testModel(t *testing.T, opts testModelOptions) *Model {
 		cfg.RefreshInterval = *opts.refresh
 	}
 
-	var store *cache.Store
+	var store *openrouter.CacheStore
 	if opts.cachePath != "" {
-		store = cache.NewStore(opts.cachePath)
+		store = openrouter.NewCacheStore(opts.cachePath)
 	}
 
 	creds := Creds{Management: "sk-or-v1-management"}
@@ -45,14 +43,14 @@ func testModel(t *testing.T, opts testModelOptions) *Model {
 
 	fetch := opts.fetch
 	if fetch == nil {
-		fetch = func(ctx context.Context, fo FetchOptions) (domain.Snapshot, error) {
-			return domain.Snapshot{
-				SchemaVersion: domain.SchemaVersion,
+		fetch = func(ctx context.Context, fo openrouter.FetchOptions) (openrouter.Snapshot, error) {
+			return openrouter.Snapshot{
+				SchemaVersion: openrouter.SchemaVersion,
 				GeneratedAt:   fo.Now,
-				Range:         domain.DisplayRange(fo.Now),
-				Account:       domain.AccountCredits{TotalPurchased: 100, TotalUsed: 50, Remaining: 50},
-				Daily:         domain.AggregateDaily(domain.DisplayRange(fo.Now), nil),
-				Runway:        domain.RunwayEstimate{Basis: domain.BasisNoRecentSpend},
+				Range:         openrouter.DisplayRange(fo.Now),
+				Account:       openrouter.AccountCredits{TotalPurchased: 100, TotalUsed: 50, Remaining: 50},
+				Daily:         openrouter.AggregateDaily(openrouter.DisplayRange(fo.Now), nil),
+				Runway:        openrouter.RunwayEstimate{Basis: openrouter.BasisNoRecentSpend},
 			}, nil
 		}
 	}
@@ -75,7 +73,7 @@ type testModelOptions struct {
 	cachePath string
 	noCreds   bool
 	version   string
-	fetch     func(context.Context, FetchOptions) (domain.Snapshot, error)
+	fetch     func(context.Context, openrouter.FetchOptions) (openrouter.Snapshot, error)
 }
 
 func TestNewWithoutCredentialsStartsSetup(t *testing.T) {
@@ -126,14 +124,14 @@ func TestCacheIsRenderedImmediately(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "snapshot.json")
-	store := cache.NewStore(path)
+	store := openrouter.NewCacheStore(path)
 
-	cached := domain.Snapshot{
-		SchemaVersion: domain.SchemaVersion,
+	cached := openrouter.Snapshot{
+		SchemaVersion: openrouter.SchemaVersion,
 		GeneratedAt:   fixedNow().Add(-2*time.Hour - 14*time.Minute),
-		Range:         domain.DisplayRange(fixedNow()),
-		Account:       domain.AccountCredits{TotalPurchased: 100, TotalUsed: 1, Remaining: 99},
-		Daily:         domain.AggregateDaily(domain.DisplayRange(fixedNow()), nil),
+		Range:         openrouter.DisplayRange(fixedNow()),
+		Account:       openrouter.AccountCredits{TotalPurchased: 100, TotalUsed: 1, Remaining: 99},
+		Daily:         openrouter.AggregateDaily(openrouter.DisplayRange(fixedNow()), nil),
 	}
 	if err := store.Save(cached); err != nil {
 		t.Fatalf("seed cache: %v", err)
@@ -172,12 +170,12 @@ func TestNoCacheFlagSkipsCache(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "snapshot.json")
-	store := cache.NewStore(path)
-	cached := domain.Snapshot{
-		SchemaVersion: domain.SchemaVersion,
+	store := openrouter.NewCacheStore(path)
+	cached := openrouter.Snapshot{
+		SchemaVersion: openrouter.SchemaVersion,
 		GeneratedAt:   fixedNow(),
-		Range:         domain.DisplayRange(fixedNow()),
-		Daily:         domain.AggregateDaily(domain.DisplayRange(fixedNow()), nil),
+		Range:         openrouter.DisplayRange(fixedNow()),
+		Daily:         openrouter.AggregateDaily(openrouter.DisplayRange(fixedNow()), nil),
 	}
 	if err := store.Save(cached); err != nil {
 		t.Fatalf("seed cache: %v", err)
@@ -203,7 +201,7 @@ func TestFailedRefreshPreservesUsableData(t *testing.T) {
 	// First, load a good snapshot.
 	good, _ := m.Update(snapshotLoadedMsg{
 		gen:      1,
-		snapshot: domain.Snapshot{SchemaVersion: 1, Account: domain.AccountCredits{Remaining: 50}},
+		snapshot: openrouter.Snapshot{SchemaVersion: 1, Account: openrouter.AccountCredits{Remaining: 50}},
 	})
 	m = good.(*Model)
 
@@ -244,13 +242,13 @@ func TestStaleResponseCannotReplaceNewer(t *testing.T) {
 
 	updated, _ := m.Update(snapshotLoadedMsg{
 		gen:      2,
-		snapshot: domain.Snapshot{SchemaVersion: 1, Account: domain.AccountCredits{Remaining: 22}},
+		snapshot: openrouter.Snapshot{SchemaVersion: 1, Account: openrouter.AccountCredits{Remaining: 22}},
 	})
 	m = updated.(*Model)
 
 	updated, _ = m.Update(snapshotLoadedMsg{
 		gen:      1,
-		snapshot: domain.Snapshot{SchemaVersion: 1, Account: domain.AccountCredits{Remaining: 11}},
+		snapshot: openrouter.Snapshot{SchemaVersion: 1, Account: openrouter.AccountCredits{Remaining: 11}},
 	})
 	m = updated.(*Model)
 
@@ -553,7 +551,7 @@ func TestViewIsPureAndStable(t *testing.T) {
 	m := testModel(t, testModelOptions{})
 	updated, _ := m.Update(snapshotLoadedMsg{
 		gen:      1,
-		snapshot: domain.Snapshot{SchemaVersion: 1, GeneratedAt: fixedNow(), Account: domain.AccountCredits{TotalPurchased: 10, TotalUsed: 1, Remaining: 9}, Range: domain.DisplayRange(fixedNow()), Daily: domain.AggregateDaily(domain.DisplayRange(fixedNow()), nil)},
+		snapshot: openrouter.Snapshot{SchemaVersion: 1, GeneratedAt: fixedNow(), Account: openrouter.AccountCredits{TotalPurchased: 10, TotalUsed: 1, Remaining: 9}, Range: openrouter.DisplayRange(fixedNow()), Daily: openrouter.AggregateDaily(openrouter.DisplayRange(fixedNow()), nil)},
 	})
 	m = updated.(*Model)
 
@@ -567,8 +565,8 @@ func TestViewIsPureAndStable(t *testing.T) {
 
 func TestFetchErrorSentinelMissingManagementKeyTriggersSetup(t *testing.T) {
 	m := testModel(t, testModelOptions{
-		fetch: func(ctx context.Context, fo FetchOptions) (domain.Snapshot, error) {
-			return domain.Snapshot{}, or.ErrMissingManagementKey
+		fetch: func(ctx context.Context, fo openrouter.FetchOptions) (openrouter.Snapshot, error) {
+			return openrouter.Snapshot{}, openrouter.ErrMissingManagementKey
 		},
 	})
 	cmd := m.Init()

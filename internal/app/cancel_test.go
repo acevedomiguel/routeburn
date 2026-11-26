@@ -8,7 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // runAll executes a tea.Cmd tree synchronously, returning the final message.
@@ -36,14 +36,14 @@ func TestQuitCancelsInFlightRequests(t *testing.T) {
 
 	m := testModel(t, testModelOptions{
 		now: fixedNow(),
-		fetch: func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+		fetch: func(ctx context.Context, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
 			close(started)
 			select {
 			case <-ctx.Done():
 				close(cancelled)
-				return domain.Snapshot{}, ctx.Err()
+				return openrouter.Snapshot{}, ctx.Err()
 			case <-time.After(10 * time.Second):
-				return domain.Snapshot{}, errors.New("fetch was not cancelled")
+				return openrouter.Snapshot{}, errors.New("fetch was not cancelled")
 			}
 		},
 	})
@@ -89,13 +89,13 @@ func TestCtrlCCancelsInFlightRequests(t *testing.T) {
 
 	m := testModel(t, testModelOptions{
 		now: fixedNow(),
-		fetch: func(ctx context.Context, opts FetchOptions) (domain.Snapshot, error) {
+		fetch: func(ctx context.Context, opts openrouter.FetchOptions) (openrouter.Snapshot, error) {
 			select {
 			case <-ctx.Done():
 				close(cancelled)
-				return domain.Snapshot{}, ctx.Err()
+				return openrouter.Snapshot{}, ctx.Err()
 			case <-time.After(10 * time.Second):
-				return domain.Snapshot{}, errors.New("not cancelled")
+				return openrouter.Snapshot{}, errors.New("not cancelled")
 			}
 		},
 	})

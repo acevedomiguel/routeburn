@@ -7,7 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"charm.land/bubbles/v2/spinner"
-	"github.com/acevedomiguel/routeburn/internal/domain"
+	"github.com/acevedomiguel/burnblocks/openrouter"
+	"github.com/acevedomiguel/routeburn/internal/format"
 	"github.com/acevedomiguel/routeburn/internal/ui"
 )
 
@@ -337,9 +338,9 @@ func (m *Model) windowTitle() string {
 	if m.state != StateReady || m.snapshot == nil {
 		return "routeburn"
 	}
-	title := "routeburn · " + domain.FormatCredits(m.snapshot.Account.Remaining) + " left"
-	if rw := m.snapshot.Runway; rw.Basis == domain.BasisFinite {
-		title += " · runway " + domain.FormatDaysRemaining(rw)
+	title := "routeburn · " + format.FormatCredits(m.snapshot.Account.Remaining) + " left"
+	if rw := m.snapshot.Runway; rw.Basis == openrouter.BasisFinite {
+		title += " · runway " + format.FormatDaysRemaining(rw)
 	}
 	return title
 }

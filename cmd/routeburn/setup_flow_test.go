@@ -5,8 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/acevedomiguel/routeburn/internal/cache"
-	"github.com/acevedomiguel/routeburn/internal/config"
+	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
 // A bare invocation without credentials must run setup itself rather than
@@ -58,7 +57,7 @@ func TestJSONWithoutCredentialsStillExitsWithoutPrompting(t *testing.T) {
 		t.Errorf("json mode should still mention setup for scripts: %q", stderr)
 	}
 
-	store := cache.NewStore(filepath.Join(home, ".cache", "routeburn", "snapshot.json"))
+	store := openrouter.NewCacheStore(filepath.Join(home, ".cache", "routeburn", "snapshot.json"))
 	if _, err := store.Load(); err == nil {
 		t.Fatal("a credential failure must not write a cache")
 	}
@@ -67,7 +66,7 @@ func TestJSONWithoutCredentialsStillExitsWithoutPrompting(t *testing.T) {
 // The wizard's view is a tea.View too, and it must not request the alternate
 // screen: on a 24-row terminal the password step would scroll off.
 func TestSetupModelViewIsAV2View(t *testing.T) {
-	m := newSetupModel(options{}, config.Paths{})
+	m := newSetupModel(options{}, openrouter.Paths{})
 	m.width, m.height = 80, 24
 	v := m.View()
 	if v.AltScreen {

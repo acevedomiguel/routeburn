@@ -13,16 +13,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/mattn/go-isatty"
 
+	"github.com/acevedomiguel/burnblocks/openrouter"
 	"github.com/acevedomiguel/routeburn/internal/app"
-	"github.com/acevedomiguel/routeburn/internal/config"
-	"github.com/acevedomiguel/routeburn/internal/credentials"
-	"github.com/acevedomiguel/routeburn/internal/domain"
-	or "github.com/acevedomiguel/routeburn/internal/openrouter"
 )
 
 // doLogout removes locally stored credentials. It never revokes them at
 // OpenRouter, because RouteBurn only has local access.
-func doLogout(paths config.Paths, opts options, stdout, stderr io.Writer) int {
+func doLogout(paths openrouter.Paths, opts options, stdout, stderr io.Writer) int {
 	store := credentialsStoreFor(paths, opts)
 	if err := store.Logout(context.Background()); err != nil {
 		fmt.Fprintf(stderr, "routeburn: logout: %v\n", err)
@@ -33,12 +30,12 @@ func doLogout(paths config.Paths, opts options, stdout, stderr io.Writer) int {
 }
 
 // doConfigReset restores the sample configuration file.
-func doConfigReset(paths config.Paths, opts options, stdout, stderr io.Writer) int {
+func doConfigReset(paths openrouter.Paths, opts options, stdout, stderr io.Writer) int {
 	path := paths.ConfigFile
 	if opts.configPath != "" {
 		path = opts.configPath
 	}
-	if err := config.WriteSample(path); err != nil {
+	if err := openrouter.WriteSample(path); err != nil {
 		fmt.Fprintf(stderr, "routeburn: config reset: %v\n", err)
 		return exitFailure
 	}
@@ -52,7 +49,7 @@ func runJSON(rt *runtime, stdout, stderr io.Writer) int {
 	defer cancel()
 
 	now := jsonSnapshotNow()
-	opts := app.FetchOptions{Now: now}
+	opts := openrouter.FetchOptions{Now: now}
 	if rt.cache != nil {
 		if prev, err := rt.cache.Load(); err == nil {
 			opts.Previous = &prev
@@ -66,28 +63,28 @@ func runJSON(rt *runtime, stdout, stderr io.Writer) int {
 			if prev, loadErr := rt.cache.Load(); loadErr == nil {
 				snap = prev
 				cached = true
-				snap.Warnings = append(snap.Warnings, domain.Warning{
+				snap.Warnings = append(snap.Warnings, openrouter.Warning{
 					Section: "Data",
-					Message: "live refresh failed; showing cached snapshot: " + credentials.Redact(err.Error()),
+					Message: "live refresh failed; showing cached snapshot: " + openrouter.Redact(err.Error()),
 				})
 			} else {
-				fmt.Fprintf(stderr, "routeburn: %v\n", credentials.Redact(err.Error()))
+				fmt.Fprintf(stderr, "routeburn: %v\n", openrouter.Redact(err.Error()))
 				return exitFailure
 			}
 		} else {
-			fmt.Fprintf(stderr, "routeburn: %v\n", credentials.Redact(err.Error()))
+			fmt.Fprintf(stderr, "routeburn: %v\n", openrouter.Redact(err.Error()))
 			return exitFailure
 		}
 	} else if rt.cache != nil {
 		if saveErr := rt.cache.Save(snap); saveErr != nil {
-			snap.Warnings = append(snap.Warnings, domain.Warning{
+			snap.Warnings = append(snap.Warnings, openrouter.Warning{
 				Section: "Cache",
 				Message: "could not write the snapshot cache: " + saveErr.Error(),
 			})
 		}
 	}
 
-	out, err := app.MarshalJSON(snap, cached)
+	out, err := openrouter.MarshalJSON(snap, cached)
 	if err != nil {
 		fmt.Fprintf(stderr, "routeburn: %v\n", err)
 		return exitFailure
@@ -140,7 +137,7 @@ func buildTUIModel(rt *runtime) *app.Model {
 		// stored, then used to rebuild the client.
 		IntervalOptions: app.DefaultIntervalOptions(),
 		SetInterval: func(interval time.Duration) error {
-			return config.SaveRefreshInterval(configTarget, interval)
+			return openrouter.SaveRefreshInterval(configTarget, interval)
 		},
 		IntervalPinned: rt.opts.refreshSet || strings.TrimSpace(os.Getenv("ROUTEBURN_REFRESH_INTERVAL")) != "",
 		EnvKey:         rt.store.ManagementFromEnvironment(),
@@ -153,9 +150,9 @@ func buildTUIModel(rt *runtime) *app.Model {
 			return err
 		},
 		SaveKey: func(ctx context.Context, management string) error {
-			return rt.store.Save(ctx, credentials.KindManagement, management)
+			return rt.store.Save(ctx, openrouter.CredentialManagement, management)
 		},
-		RebuildAPI: func(management, apiKey string) (app.API, error) {
+		RebuildAPI: func(management, apiKey string) (openrouter.API, error) {
 			client, err := newAPIClient(management, apiKey)
 			if err != nil {
 				return nil, err
@@ -166,10 +163,10 @@ func buildTUIModel(rt *runtime) *app.Model {
 }
 
 // doSetup stores credentials after validating them with a live request.
-func doSetup(paths config.Paths, opts options, stdin io.Reader, stdout, stderr io.Writer) int {
+func doSetup(paths openrouter.Paths, opts options, stdin io.Reader, stdout, stderr io.Writer) int {
 	fmt.Fprint(stdout, setupWelcome())
 
-	if strings.TrimSpace(os.Getenv(credentials.EnvManagementKey)) != "" {
+	if strings.TrimSpace(os.Getenv(openrouter.EnvManagementKey)) != "" {
 		fmt.Fprintln(stderr, "routeburn: ROUTEBURN_MANAGEMENT_KEY is set; nothing to set up.")
 		fmt.Fprintln(stderr, "Unset it to store a key locally, or run `routeburn` to use the environment key.")
 		return exitOK
@@ -189,10 +186,10 @@ func doSetup(paths config.Paths, opts options, stdin io.Reader, stdout, stderr i
 		return exitCredentials
 	}
 
-	client, err := or.NewClient(
-		or.WithManagementKey(management),
-		or.WithAPIKey(apiKey),
-		or.WithVersion(version),
+	client, err := openrouter.NewClient(
+		openrouter.WithManagementKey(management),
+		openrouter.WithAPIKey(apiKey),
+		openrouter.WithVersion(version),
 	)
 	if err != nil {
 		fmt.Fprintf(stderr, "routeburn: %v\n", err)
@@ -202,19 +199,19 @@ func doSetup(paths config.Paths, opts options, stdin io.Reader, stdout, stderr i
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	if _, err := client.Credits(ctx); err != nil {
-		fmt.Fprintf(stderr, "routeburn: credential validation failed: %s\n", credentials.Redact(err.Error()))
+		fmt.Fprintf(stderr, "routeburn: credential validation failed: %s\n", openrouter.Redact(err.Error()))
 		fmt.Fprintln(stderr, "Nothing was saved. Run `routeburn setup` again when the key works.")
 		return exitFailure
 	}
 
 	store := credentialsStoreFor(paths, opts)
-	if err := store.Save(ctx, credentials.KindManagement, management); err != nil {
-		fmt.Fprintf(stderr, "routeburn: could not store the management key: %s\n", credentials.Redact(err.Error()))
+	if err := store.Save(ctx, openrouter.CredentialManagement, management); err != nil {
+		fmt.Fprintf(stderr, "routeburn: could not store the management key: %s\n", openrouter.Redact(err.Error()))
 		return exitFailure
 	}
 	if apiKey != "" {
-		if err := store.Save(ctx, credentials.KindAPIKey, apiKey); err != nil {
-			fmt.Fprintf(stderr, "routeburn: could not store the API key: %s\n", credentials.Redact(err.Error()))
+		if err := store.Save(ctx, openrouter.CredentialAPIKey, apiKey); err != nil {
+			fmt.Fprintf(stderr, "routeburn: could not store the API key: %s\n", openrouter.Redact(err.Error()))
 			return exitFailure
 		}
 	}
@@ -223,7 +220,7 @@ func doSetup(paths config.Paths, opts options, stdin io.Reader, stdout, stderr i
 	if opts.configPath != "" {
 		cfgPath = opts.configPath
 	}
-	if err := config.WriteSample(cfgPath); err != nil {
+	if err := openrouter.WriteSample(cfgPath); err != nil {
 		fmt.Fprintf(stderr, "routeburn: credentials saved, but the configuration file could not be written: %v\n", err)
 		return exitFailure
 	}
@@ -274,9 +271,9 @@ func readSetupLines(stdin io.Reader, stdout, stderr io.Writer) (string, string, 
 }
 
 // credentialsStoreFor builds the credential store for the given options.
-func credentialsStoreFor(paths config.Paths, opts options) *credentials.Store {
-	return credentials.NewStore(credentials.Options{
-		Keyring:             osKeyringFor(config.Config{Keyring: keyringRequested()}),
+func credentialsStoreFor(paths openrouter.Paths, opts options) *openrouter.CredentialStore {
+	return openrouter.NewCredentialStore(openrouter.CredentialOptions{
+		Keyring:             osKeyringFor(openrouter.Config{Keyring: keyringRequested()}),
 		ManagementTokenFile: paths.ManagementTokenFile(),
 		APIKeyFile:          paths.APIKeyFile(),
 		KeyringEnabled:      keyringRequested(),
