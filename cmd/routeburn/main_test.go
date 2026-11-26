@@ -182,3 +182,18 @@ func TestParseHelpBeatsFlagErrors(t *testing.T) {
 		t.Fatalf("command = %q", opts.command)
 	}
 }
+
+// The help output names the shared engine the binary embeds, so a support
+// report can identify it after the engine moved to its own module.
+func TestHelpReportsEngineVersion(t *testing.T) {
+	code, stdout, _ := runCLI(t, "--help")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(stdout, "github.com/acevedomiguel/burnblocks") {
+		t.Errorf("help must name the engine module:\n%s", stdout)
+	}
+	if got := engineVersion(); got == "" {
+		t.Error("engineVersion must never be empty")
+	}
+}
