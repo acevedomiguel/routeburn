@@ -1,0 +1,23 @@
+cmd/routeburn/main_test.go
+  s_58b6f55c0833f4::t_c4e57fa5ca078d 185-199
+cmd/routeburn/engine.go
+  s_58b6f55c0833f4::t_07c3ddcdb4a67d 1-32
+cmd/routeburn/main.go
+  s_58b6f55c0833f4::t_da8f3f52a966a3 345-346
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "04550adf86c7daf1ca039a41e89afdeaabd88da7",
+  "prompts": {},
+  "sessions": {
+    "s_58b6f55c0833f4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_de8e37bb1ffeg7g6B9LpPtCNn5",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    }
+  }
+}
