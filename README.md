@@ -97,7 +97,7 @@ after staging; without that step Gatekeeper would kill the binary on first run.
 The tap is a third-party tap, so Homebrew asks you to trust it once:
 
 ```bash
-brew trust acevedomiguel/routeburn
+brew trust --tap acevedomiguel/routeburn
 ```
 
 ### Go
