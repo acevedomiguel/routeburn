@@ -1,3 +1,9 @@
+## [1.8.0](https://github.com/acevedomiguel/routeburn/compare/v1.7.0...v1.8.0) (2026-11-26)
+
+### Features
+
+* report the embedded burnblocks engine in help ([#30](https://github.com/acevedomiguel/routeburn/issues/30)) ([91c8fd7](https://github.com/acevedomiguel/routeburn/commit/91c8fd7abd153e8fcbe7883ea4c1f4e144c567d0))
+
 ## [1.7.0](https://github.com/acevedomiguel/routeburn/compare/v1.6.0...v1.7.0) (2026-11-25)
 
 ### Features
