@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/acevedomiguel/burnblocks/openrouter"
 )
 
@@ -74,5 +76,21 @@ func TestSetupModelViewIsAV2View(t *testing.T) {
 	}
 	if !strings.Contains(v.Content, "RouteBurn setup") {
 		t.Errorf("setup view = %q", v.Content)
+	}
+}
+
+// The wizard's text input accepts a bracketed paste, so a management key can be
+// pasted at the first-run prompt as well as typed.
+func TestSetupModelAcceptsPastedManagementKey(t *testing.T) {
+	m := newSetupModel(options{}, openrouter.Paths{})
+	const key = "sk-or-v1-synthetic-pasted-key"
+
+	updated, _ := m.Update(tea.PasteMsg{Content: key})
+	got, ok := updated.(*setupModel)
+	if !ok {
+		t.Fatalf("update returned %T, want *setupModel", updated)
+	}
+	if got.input.Value() != key {
+		t.Fatalf("input = %q, want the pasted key", got.input.Value())
 	}
 }

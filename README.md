@@ -381,9 +381,10 @@ keys affect only the popup and the footer lists the available popup actions.
 
 Settings opens the same way. In it, `↑`/`↓` (or `j`/`k`) pick a row, `←`/`→`
 (or `h`/`l`) or a number key 1–5 chooses the refresh interval, and Enter starts a
-management-key entry. While typing a key the letters are key content, so only
-Enter saves, Esc cancels, and Ctrl+C quits. `Esc`, `q`, or `s` closes Settings
-and returns to the dashboard at the same scroll position.
+management-key entry. While entering a key the letters are key content, so only
+Enter saves, Esc cancels, and Ctrl+C quits. The key can be typed or pasted, and
+it stays hidden either way. `Esc`, `q`, or `s` closes Settings and returns to the
+dashboard at the same scroll position.
 
 The menu bar on the last row always lists the keys that actually work. The body
 is fitted to the frame at every supported size, so scrolling only engages on a

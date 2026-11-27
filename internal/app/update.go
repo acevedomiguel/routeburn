@@ -28,6 +28,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 
+	case tea.PasteMsg:
+		return m.handlePaste(msg)
+
 	case cacheLoadedMsg:
 		if msg.err == nil {
 			stored := msg.snapshot
