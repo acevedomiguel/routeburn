@@ -116,6 +116,85 @@ func TestSettingsKeyEditingTreatsLettersAsContent(t *testing.T) {
 	}
 }
 
+func TestSettingsKeyPasteAcceptsContentAndHidesIt(t *testing.T) {
+	const key = "sk-or-v1-synthetic-pasted-key"
+	var validated, stored string
+	m := settingsModel(t, settingsWiring{
+		validateKey: func(_ context.Context, got string) error { validated = got; return nil },
+		saveKey:     func(_ context.Context, got string) error { stored = got; return nil },
+		rebuildAPI:  func(string, string) (openrouter.API, error) { return &fakeAPI{}, nil },
+	})
+	openSettings(t, m)
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.keyEditing {
+		t.Fatal("enter on the key row did not start editing")
+	}
+
+	// A paste is key content, not an overlay command, and it must never appear
+	// in the rendered view.
+	feed(m, tea.PasteMsg{Content: key})
+	if m.keyInput != key {
+		t.Fatalf("keyInput = %q, want the pasted key", m.keyInput)
+	}
+	if !m.settingsVisible || !m.keyEditing {
+		t.Fatalf("visible=%v editing=%v, want the overlay still editing", m.settingsVisible, m.keyEditing)
+	}
+	if view := m.View().Content; strings.Contains(view, key) {
+		t.Fatalf("the pasted key appeared in the view:\n%s", view)
+	}
+	if placeholders := strings.Repeat("*", len([]rune(key))); !strings.Contains(m.View().Content, placeholders) {
+		t.Fatalf("the hidden input did not render %d placeholders", len([]rune(key)))
+	}
+
+	cmd := pressKey(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("submitting the pasted key returned no command")
+	}
+	if m.keyInput != "" || !m.keySaving {
+		t.Fatalf("keyInput=%q saving=%v, want the buffer cleared and a check running", m.keyInput, m.keySaving)
+	}
+	feed(m, cmd().(keySavedMsg))
+	if validated != key || stored != key {
+		t.Fatalf("validated=%q stored=%q, want the pasted key", validated, stored)
+	}
+}
+
+func TestSettingsKeyPasteIsIgnoredOutsideEditing(t *testing.T) {
+	validate, save, rebuild := noopKeyHooks()
+	m := settingsModel(t, settingsWiring{validateKey: validate, saveKey: save, rebuildAPI: rebuild})
+
+	// On the dashboard a paste changes nothing.
+	feed(m, tea.PasteMsg{Content: "sk-or-v1-synthetic"})
+	if m.keyInput != "" {
+		t.Fatalf("a dashboard paste was captured: %q", m.keyInput)
+	}
+
+	// Inside the overlay, before key entry starts, a paste is still ignored.
+	openSettings(t, m)
+	feed(m, tea.PasteMsg{Content: "sk-or-v1-synthetic"})
+	if m.keyEditing || m.keyInput != "" {
+		t.Fatalf("editing=%v keyInput=%q, want a paste ignored", m.keyEditing, m.keyInput)
+	}
+}
+
+func TestSettingsKeyPasteOverLimitIsRefusedWhole(t *testing.T) {
+	validate, save, rebuild := noopKeyHooks()
+	m := settingsModel(t, settingsWiring{validateKey: validate, saveKey: save, rebuildAPI: rebuild})
+	openSettings(t, m)
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	pressKey(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	feed(m, tea.PasteMsg{Content: strings.Repeat("a", maxKeyInputLength)})
+	if len([]rune(m.keyInput)) != maxKeyInputLength {
+		t.Fatalf("a full-length paste was not accepted: %d", len([]rune(m.keyInput)))
+	}
+	feed(m, tea.PasteMsg{Content: "b"})
+	if len([]rune(m.keyInput)) != maxKeyInputLength {
+		t.Fatalf("a paste past the limit was not refused whole: %d", len([]rune(m.keyInput)))
+	}
+}
+
 func TestSettingsIntervalSelectionPersistsAndRearms(t *testing.T) {
 	var saved []time.Duration
 	m := settingsModel(t, settingsWiring{setInterval: func(d time.Duration) error {

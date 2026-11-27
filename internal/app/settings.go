@@ -155,11 +155,34 @@ func (m *Model) handleKeyInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.keyInput = string(runes[:len(runes)-1])
 		}
 		return m, nil
-	case msg.Text != "" && len(m.keyInput)+len(msg.Text) <= maxKeyInputLength:
-		m.keyInput += msg.Text
+	case msg.Text != "":
+		m.appendKeyInput(msg.Text)
 		return m, nil
 	}
 	return m, nil
+}
+
+// handlePaste routes a bracketed paste. Only an active Settings key entry
+// accepts it, so pasted text can never trigger a dashboard or overlay action
+// elsewhere. The pasted key is kept hidden and bounded exactly like typing.
+func (m *Model) handlePaste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
+	if m.settingsVisible && m.keyEditing {
+		m.appendKeyInput(msg.Content)
+	}
+	return m, nil
+}
+
+// appendKeyInput adds text to the hidden key buffer, up to maxKeyInputLength. A
+// paste that would overflow the buffer is refused whole rather than truncated,
+// so a credential is never silently shortened.
+func (m *Model) appendKeyInput(text string) {
+	if text == "" {
+		return
+	}
+	if len([]rune(m.keyInput))+len([]rune(text)) > maxKeyInputLength {
+		return
+	}
+	m.keyInput += text
 }
 
 // changeInterval moves the interval selection by delta and applies it. The
