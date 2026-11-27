@@ -1,0 +1,37 @@
+internal/app/settings_test.go
+  s_f85b74e04c1235::t_fb5f29b04993af 119-197
+internal/app/update.go
+  s_f85b74e04c1235::t_45c2f4876acc01 31-33
+README.md
+  s_f85b74e04c1235::t_8f4930f769652d 384-387
+cmd/routeburn/setup_flow_test.go
+  s_f85b74e04c1235::t_d51e4145d42855 8-9
+  s_f85b74e04c1235::t_a27f5fdae03c97 81-96
+internal/app/settings.go
+  s_f85b74e04c1235::t_2cac454e397d90 158-159,165-186
+  s_3a4bc3529a2444::t_bd377489b5e444 187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "a5b663d94afea5fd464e02bffa88006546c4935d",
+  "prompts": {},
+  "sessions": {
+    "s_3a4bc3529a2444": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_de5296186ffe2CuNQuN2LhN3il",
+        "model": "~deepseek/deepseek-v4-flash-latest"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    },
+    "s_f85b74e04c1235": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_de3e582dbffe8B5xoFJMThBKX6",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Miguel Angel Acevedo <acevedomiguel@gmail.com>"
+    }
+  }
+}
