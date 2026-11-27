@@ -1,3 +1,9 @@
+## [1.8.1](https://github.com/acevedomiguel/routeburn/compare/v1.8.0...v1.8.1) (2026-11-27)
+
+### Bug Fixes
+
+* support pasted management keys in settings ([#32](https://github.com/acevedomiguel/routeburn/issues/32)) ([93393a0](https://github.com/acevedomiguel/routeburn/commit/93393a0ee1cb3e0700fc4bfc55b349f3cc2f7596))
+
 ## [1.8.0](https://github.com/acevedomiguel/routeburn/compare/v1.7.0...v1.8.0) (2026-11-26)
 
 ### Features
